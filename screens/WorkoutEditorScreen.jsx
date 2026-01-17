@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Modal,
   Alert,
 } from 'react-native';
+import api from '../services/api';
 
 const WorkoutEditorScreen = ({ navigation, route }) => {
   const isEditing = route?.params?.workout !== undefined;
@@ -19,169 +20,76 @@ const WorkoutEditorScreen = ({ navigation, route }) => {
   const [workoutName, setWorkoutName] = useState(existingWorkout?.name || '');
   const [exercises, setExercises] = useState(existingWorkout?.exercises || []);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [startTime, setStartTime] = useState(null);
+  const [elapsedTime, setElapsedTime] = useState(0); // in seconds
+  const [timerRunning, setTimerRunning] = useState(false);
+  const [templates, setTemplates] = useState([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
 
-  // Szablony treningów
-  const templates = {
-    push: {
-      name: 'Push A',
-      exercises: [
-        {
-          id: 1,
-          name: 'Bench Press',
-          numSets: 4,
-          sets: [
-            { id: 1, weight: '', reps: '' },
-            { id: 2, weight: '', reps: '' },
-            { id: 3, weight: '', reps: '' },
-            { id: 4, weight: '', reps: '' },
-          ]
-        },
-        {
-          id: 2,
-          name: 'Incline DB Press',
-          numSets: 3,
-          sets: [
-            { id: 1, weight: '', reps: '' },
-            { id: 2, weight: '', reps: '' },
-            { id: 3, weight: '', reps: '' },
-          ]
-        },
-        {
-          id: 3,
-          name: 'Cable Flyes',
-          numSets: 3,
-          sets: [
-            { id: 1, weight: '', reps: '' },
-            { id: 2, weight: '', reps: '' },
-            { id: 3, weight: '', reps: '' },
-          ]
-        },
-        {
-          id: 4,
-          name: 'Overhead Press',
-          numSets: 4,
-          sets: [
-            { id: 1, weight: '', reps: '' },
-            { id: 2, weight: '', reps: '' },
-            { id: 3, weight: '', reps: '' },
-            { id: 4, weight: '', reps: '' },
-          ]
-        },
-      ],
-    },
-    pull: {
-      name: 'Pull A',
-      exercises: [
-        {
-          id: 1,
-          name: 'Deadlift',
-          numSets: 4,
-          sets: [
-            { id: 1, weight: '', reps: '' },
-            { id: 2, weight: '', reps: '' },
-            { id: 3, weight: '', reps: '' },
-            { id: 4, weight: '', reps: '' },
-          ]
-        },
-        {
-          id: 2,
-          name: 'Pull-ups',
-          numSets: 4,
-          sets: [
-            { id: 1, weight: '', reps: '' },
-            { id: 2, weight: '', reps: '' },
-            { id: 3, weight: '', reps: '' },
-            { id: 4, weight: '', reps: '' },
-          ]
-        },
-        {
-          id: 3,
-          name: 'Barbell Row',
-          numSets: 4,
-          sets: [
-            { id: 1, weight: '', reps: '' },
-            { id: 2, weight: '', reps: '' },
-            { id: 3, weight: '', reps: '' },
-            { id: 4, weight: '', reps: '' },
-          ]
-        },
-      ],
-    },
-    legs: {
-      name: 'Legs A',
-      exercises: [
-        {
-          id: 1,
-          name: 'Squat',
-          numSets: 4,
-          sets: [
-            { id: 1, weight: '', reps: '' },
-            { id: 2, weight: '', reps: '' },
-            { id: 3, weight: '', reps: '' },
-            { id: 4, weight: '', reps: '' },
-          ]
-        },
-        {
-          id: 2,
-          name: 'Romanian Deadlift',
-          numSets: 4,
-          sets: [
-            { id: 1, weight: '', reps: '' },
-            { id: 2, weight: '', reps: '' },
-            { id: 3, weight: '', reps: '' },
-            { id: 4, weight: '', reps: '' },
-          ]
-        },
-        {
-          id: 3,
-          name: 'Leg Press',
-          numSets: 3,
-          sets: [
-            { id: 1, weight: '', reps: '' },
-            { id: 2, weight: '', reps: '' },
-            { id: 3, weight: '', reps: '' },
-          ]
-        },
-      ],
-    },
-    fbw: {
-      name: 'FBW',
-      exercises: [
-        {
-          id: 1,
-          name: 'Squat',
-          numSets: 4,
-          sets: [
-            { id: 1, weight: '', reps: '' },
-            { id: 2, weight: '', reps: '' },
-            { id: 3, weight: '', reps: '' },
-            { id: 4, weight: '', reps: '' },
-          ]
-        },
-        {
-          id: 2,
-          name: 'Bench Press',
-          numSets: 4,
-          sets: [
-            { id: 1, weight: '', reps: '' },
-            { id: 2, weight: '', reps: '' },
-            { id: 3, weight: '', reps: '' },
-            { id: 4, weight: '', reps: '' },
-          ]
-        },
-        {
-          id: 3,
-          name: 'Barbell Row',
-          numSets: 4,
-          sets: [
-            { id: 1, weight: '', reps: '' },
-            { id: 2, weight: '', reps: '' },
-            { id: 3, weight: '', reps: '' },
-            { id: 4, weight: '', reps: '' },
-          ]
-        },
-      ],
-    },
+  // Timer effect
+  React.useEffect(() => {
+    let interval = null;
+    if (timerRunning && startTime) {
+      interval = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        setElapsedTime(elapsed);
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [timerRunning, startTime]);
+
+  // Format elapsed time as MM:SS
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Start timer (continue from current elapsed time)
+  const startTimer = () => {
+    setStartTime(Date.now() - (elapsedTime * 1000)); // Adjust start time based on elapsed
+    setTimerRunning(true);
+  };
+
+  // Stop timer (pause, don't reset)
+  const stopTimer = () => {
+    setTimerRunning(false);
+  };
+
+  // Fetch templates from database
+  useEffect(() => {
+    const fetchTemplates = async () => {
+      try {
+        setLoadingTemplates(true);
+        const data = await api.getWorkoutTemplates();
+        setTemplates(data || []);
+      } catch (error) {
+        console.error('Error fetching templates:', error);
+      } finally {
+        setLoadingTemplates(false);
+      }
+    };
+    fetchTemplates();
+  }, []);
+
+  // Load template by ID
+  const loadTemplate = (template) => {
+    setWorkoutName(template.name);
+    setExercises(
+      template.exercises.map((ex, idx) => ({
+        id: Date.now() + idx,
+        name: ex.name,
+        numSets: ex.numSets || 3,
+        sets: Array.from({ length: ex.numSets || 3 }, (_, i) => ({
+          id: i + 1,
+          weight: '',
+          reps: ''
+        }))
+      }))
+    );
+    setShowTemplateModal(false);
   };
 
   const addExercise = () => {
@@ -242,14 +150,7 @@ const WorkoutEditorScreen = ({ navigation, route }) => {
     );
   };
 
-  const loadTemplate = (templateKey) => {
-    const template = templates[templateKey];
-    setWorkoutName(template.name);
-    setExercises(template.exercises);
-    setShowTemplateModal(false);
-  };
-
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!workoutName.trim()) {
       Alert.alert('Błąd', 'Podaj nazwę treningu');
       return;
@@ -260,10 +161,30 @@ const WorkoutEditorScreen = ({ navigation, route }) => {
     }
 
     // Tutaj logika zapisu do bazy/state
-    console.log('Saving workout:', { name: workoutName, exercises });
-    Alert.alert('Sukces', 'Trening został zapisany', [
-      { text: 'OK', onPress: () => navigation.goBack() },
-    ]);
+    try {
+      const workoutData = {
+        name: workoutName,
+        date: new Date().toISOString().split('T')[0],
+        time: new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }),
+        duration: formatTime(elapsedTime), // Save actual duration
+        exercises: exercises.map(ex => ({
+          name: ex.name,
+          numSets: ex.numSets,
+          sets: ex.sets.map(s => ({ weight: s.weight, reps: s.reps }))
+        }))
+      };
+
+      if (isEditing) {
+        await api.updateWorkout(existingWorkout._id, workoutData);
+      } else {
+        await api.createWorkout(workoutData);
+      }
+      stopTimer(); // Stop timer when saving
+      navigation.goBack();
+    } catch (e) {
+      console.error(e);
+      Alert.alert('Błąd', 'Nie udało się zapisał treningu');
+    }
   };
 
   return (
@@ -272,18 +193,58 @@ const WorkoutEditorScreen = ({ navigation, route }) => {
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={styles.backIcon}>←</Text>
-        </TouchableOpacity>
         <Text style={styles.title}>
           {isEditing ? 'Edytuj Trening' : 'Nowy Trening'}
         </Text>
-        <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-          <Text style={styles.saveButtonText}>Zapisz</Text>
-        </TouchableOpacity>
+
+        <View style={styles.headerControls}>
+          <Text style={styles.timerText}>
+            {formatTime(elapsedTime)}
+          </Text>
+
+          {!timerRunning ? (
+            <TouchableOpacity
+              style={styles.startButton}
+              onPress={startTimer}
+            >
+              <Text style={styles.startButtonText}>▶</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={styles.stopButton}
+              onPress={stopTimer}
+            >
+              <Text style={styles.stopButtonText}>⏸</Text>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity
+            style={styles.saveButton}
+            onPress={handleSave}
+          >
+            <Text style={styles.saveButtonText}>Zapisz</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.cancelButton}
+            onPress={() => {
+              Alert.alert(
+                'Anuluj trening',
+                'Czy na pewno chcesz anulować? Wszystkie niezapisane zmiany zostaną utracone.',
+                [
+                  { text: 'Nie', style: 'cancel' },
+                  {
+                    text: 'Tak, anuluj',
+                    style: 'destructive',
+                    onPress: () => navigation.goBack()
+                  }
+                ]
+              );
+            }}
+          >
+            <Text style={styles.cancelButtonText}>Anuluj</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
@@ -430,57 +391,35 @@ const WorkoutEditorScreen = ({ navigation, route }) => {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Wybierz szablon</Text>
 
-            <TouchableOpacity
-              style={styles.templateOption}
-              onPress={() => loadTemplate('push')}
-            >
-              <Text style={styles.templateOptionIcon}>💪</Text>
-              <View style={styles.templateOptionInfo}>
-                <Text style={styles.templateOptionTitle}>Push</Text>
-                <Text style={styles.templateOptionDesc}>
-                  Klatka, ramiona, triceps
-                </Text>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.templateOption}
-              onPress={() => loadTemplate('pull')}
-            >
-              <Text style={styles.templateOptionIcon}>🏋️</Text>
-              <View style={styles.templateOptionInfo}>
-                <Text style={styles.templateOptionTitle}>Pull</Text>
-                <Text style={styles.templateOptionDesc}>
-                  Plecy, biceps, martwy ciąg
-                </Text>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.templateOption}
-              onPress={() => loadTemplate('legs')}
-            >
-              <Text style={styles.templateOptionIcon}>🦵</Text>
-              <View style={styles.templateOptionInfo}>
-                <Text style={styles.templateOptionTitle}>Legs</Text>
-                <Text style={styles.templateOptionDesc}>
-                  Nogi, pośladki, łydki
-                </Text>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.templateOption}
-              onPress={() => loadTemplate('fbw')}
-            >
-              <Text style={styles.templateOptionIcon}>🔥</Text>
-              <View style={styles.templateOptionInfo}>
-                <Text style={styles.templateOptionTitle}>FBW</Text>
-                <Text style={styles.templateOptionDesc}>
-                  Full Body Workout
-                </Text>
-              </View>
-            </TouchableOpacity>
+            <ScrollView style={{ maxHeight: 400 }}>
+              {loadingTemplates ? (
+                <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+                  <Text style={{ color: '#94A3B8' }}>Ładowanie...</Text>
+                </View>
+              ) : templates.length > 0 ? (
+                templates.map((template) => (
+                  <TouchableOpacity
+                    key={template._id}
+                    style={styles.templateOption}
+                    onPress={() => loadTemplate(template)}
+                  >
+                    <Text style={styles.templateOptionIcon}>📋</Text>
+                    <View style={styles.templateOptionInfo}>
+                      <Text style={styles.templateOptionTitle}>{template.name}</Text>
+                      <Text style={styles.templateOptionDesc}>
+                        {template.description || `${template.exercises?.length || 0} ćwiczeń`}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ))
+              ) : (
+                <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+                  <Text style={{ color: '#94A3B8', textAlign: 'center' }}>
+                    Brak szablonów.{'\n'}Stwórz plan w sekcji "Plany" z typem "Szablon"
+                  </Text>
+                </View>
+              )}
+            </ScrollView>
 
             <TouchableOpacity
               style={styles.modalCancelButton}
@@ -501,38 +440,76 @@ const styles = StyleSheet.create({
     backgroundColor: '#0F172A',
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 16,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backIcon: {
-    fontSize: 28,
-    color: '#FFFFFF',
-    fontWeight: '600',
+    paddingTop: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1E293B',
   },
   title: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 8,
+  },
+  headerControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-end',
+    gap: 8,
+  },
+  timerText: {
     fontSize: 20,
+    fontWeight: '700',
+    color: '#10B981',
+    minWidth: 60,
+    textAlign: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  cancelButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  startButton: {
+    backgroundColor: '#10B981',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
+    minWidth: 36,
+    alignItems: 'center',
+  },
+  startButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  stopButton: {
+    backgroundColor: '#F59E0B',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
+    minWidth: 36,
+    alignItems: 'center',
+  },
+  stopButtonText: {
+    fontSize: 16,
     fontWeight: '700',
     color: '#FFFFFF',
   },
   saveButton: {
+    backgroundColor: '#3B82F6',
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: '#3B82F6',
     borderRadius: 8,
   },
   saveButtonText: {
     fontSize: 14,
-    fontWeight: '700',
     color: '#FFFFFF',
   },
   scrollView: {

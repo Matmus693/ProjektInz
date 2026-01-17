@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,81 +10,202 @@ import {
   TouchableOpacity,
   Modal,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import api from '../services/api';
+
+const TEMP_USER_ID = '65a000000000000000000001';
 
 const ProgressScreen = ({ navigation }) => {
+  const [loading, setLoading] = useState(true);
+  const [progressData, setProgressData] = useState(null);
+  const [stats, setStats] = useState(null);
+  const [exercisesList, setExercisesList] = useState([]);
+
+  // Modals
   const [showWeightModal, setShowWeightModal] = useState(false);
   const [showMeasurementsModal, setShowMeasurementsModal] = useState(false);
   const [showExerciseModal, setShowExerciseModal] = useState(false);
-  
+  const [showTargetWeightModal, setShowTargetWeightModal] = useState(false);
+
+  // Form State
   const [newWeight, setNewWeight] = useState('');
+  const [newTargetWeight, setNewTargetWeight] = useState('');
+  const [measurementsDetails, setMeasurementsDetails] = useState({
+    chest: '', waist: '', biceps: '', thighs: ''
+  });
+
+  // Exercise Progress State
   const [selectedExercise, setSelectedExercise] = useState(null);
+  const [exerciseProgress, setExerciseProgress] = useState(null);
+  const [loadingExerciseStats, setLoadingExerciseStats] = useState(false);
+  const [showAllWeightHistory, setShowAllWeightHistory] = useState(false);
+  const [exerciseFilter, setExerciseFilter] = useState('all');
 
-  // Przykładowe dane
-  const currentWeight = 78.5;
-  const targetWeight = 75.0;
-  const weightChange = -2.3;
+  const fetchData = async () => {
+    try {
+      setLoading(true);
 
-  const bodyMeasurements = {
-    chest: 102,
-    waist: 85,
-    biceps: 38,
-    thighs: 58,
-    lastUpdate: '2024-01-10',
+      // 1. Fetch Main Progress (Weight, Measurements)
+      const data = await api.getProgress();
+      if (data) {
+        setProgressData(data);
+        // Pre-fill measurements form
+        if (data.measurements) {
+          setMeasurementsDetails({
+            chest: data.measurements.chest?.toString() || '',
+            waist: data.measurements.waist?.toString() || '',
+            biceps: data.measurements.biceps?.toString() || '',
+            thighs: data.measurements.thighs?.toString() || '',
+          });
+        }
+      }
+
+      // 2. Fetch Monthly Stats
+      const statsData = await api.getStats();
+      if (statsData) {
+        setStats(statsData);
+      }
+
+      // 3. Fetch Exercises List (for picker)
+      const exList = await api.getExercises();
+      if (exList) {
+        setExercisesList(exList);
+      }
+
+    } catch (e) {
+      console.error(e);
+      Alert.alert('Błąd', 'Nie udało się pobrać danych');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const weightHistory = [
-    { date: '2024-01-12', weight: 78.5 },
-    { date: '2024-01-05', weight: 79.2 },
-    { date: '2023-12-29', weight: 80.1 },
-    { date: '2023-12-22', weight: 80.8 },
-  ];
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+    }, [])
+  );
 
-  const exercisesList = [
-    { id: 1, name: 'Bench Press', category: 'Push' },
-    { id: 2, name: 'Squat', category: 'Legs' },
-    { id: 3, name: 'Deadlift', category: 'Pull' },
-    { id: 4, name: 'Overhead Press', category: 'Push' },
-    { id: 5, name: 'Barbell Row', category: 'Pull' },
-  ];
+  const fetchExerciseStats = async (exercise) => {
+    setSelectedExercise(exercise);
+    setShowExerciseModal(false);
+    setLoadingExerciseStats(true);
+    setExerciseProgress(null); // Clear previous
 
-  const exerciseProgress = {
-    'Bench Press': {
-      currentMax: 80,
-      previousMax: 75,
-      totalVolume: 12450,
-      sessions: 15,
-      history: [
-        { date: '2024-01-12', maxWeight: 80, volume: 3090 },
-        { date: '2024-01-08', maxWeight: 80, volume: 2980 },
-        { date: '2024-01-04', maxWeight: 77.5, volume: 2850 },
-        { date: '2023-12-30', maxWeight: 75, volume: 2750 },
-      ],
-    },
+    try {
+      // Encoded name just in case
+      const encodedName = encodeURIComponent(exercise.name);
+      // api.request doesn't have a shortcut for this yet, using generic request
+      const data = await api.request(`/progress/exercise/${encodedName}`);
+      if (data) {
+        setExerciseProgress(data);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingExerciseStats(false);
+    }
   };
 
-  const monthlyStats = {
-    totalWorkouts: 16,
-    totalVolume: 48500,
-    totalSets: 192,
-    avgWorkoutDuration: 54,
-  };
-
-  const handleAddWeight = () => {
+  const handleAddWeight = async () => {
     if (!newWeight) {
       Alert.alert('Błąd', 'Podaj wagę');
       return;
     }
-    console.log('Adding weight:', newWeight);
-    setNewWeight('');
-    setShowWeightModal(false);
-    Alert.alert('Sukces', 'Waga została dodana');
+    try {
+      // api.addWeight handles formatting
+      await api.addWeight(new Date().toISOString().split('T')[0], newWeight);
+      setNewWeight('');
+      setShowWeightModal(false);
+      fetchData(); // Refresh
+      Alert.alert('Sukces', 'Waga została dodana');
+    } catch (err) {
+      console.error(err);
+      Alert.alert('Błąd', 'Nie udało się zapisać wagi');
+    }
   };
 
-  const handleSelectExercise = (exercise) => {
-    setSelectedExercise(exercise);
-    setShowExerciseModal(false);
+  const handleUpdateMeasurements = async () => {
+    try {
+      const payload = {
+        chest: parseFloat(measurementsDetails.chest) || 0,
+        waist: parseFloat(measurementsDetails.waist) || 0,
+        biceps: parseFloat(measurementsDetails.biceps) || 0,
+        thighs: parseFloat(measurementsDetails.thighs) || 0
+      };
+      await api.updateMeasurements(payload);
+      setShowMeasurementsModal(false);
+      fetchData();
+      Alert.alert('Sukces', 'Pomiary zaktualizowane');
+    } catch (err) {
+      console.error(err);
+      Alert.alert('Błąd', 'Nie udało się zaktualizować pomiarów');
+    }
   };
+
+  const handleSetTargetWeight = async () => {
+    if (!newTargetWeight) {
+      Alert.alert('Błąd', 'Podaj wagę docelową');
+      return;
+    }
+    try {
+      await api.updateTargetWeight(newTargetWeight);
+      setNewTargetWeight('');
+      setShowTargetWeightModal(false);
+      fetchData();
+      Alert.alert('Sukces', 'Cel wagowy zaktualizowany');
+    } catch (err) {
+      console.error(err);
+      Alert.alert('Błąd', 'Nie udało się ustawić celu');
+    }
+  };
+
+  const handleDeleteWeight = async (weightId) => {
+    Alert.alert(
+      'Usuń pomiar',
+      'Czy na pewno chcesz usunąć ten pomiar wagi?',
+      [
+        { text: 'Anuluj', style: 'cancel' },
+        {
+          text: 'Usuń',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.deleteWeight(weightId);
+              fetchData();
+              Alert.alert('Sukces', 'Pomiar usunięty');
+            } catch (err) {
+              console.error(err);
+              Alert.alert('Błąd', 'Nie udało się usunąć pomiaru');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Helpers for display
+  const currentWeight = progressData?.weight?.length > 0 ? progressData.weight[0].weight : '-';
+  const targetWeight = progressData?.targetWeight || '-';
+
+  // Calculate weight change (latest vs previous)
+  const getWeightChange = () => {
+    const history = progressData?.weight || [];
+    if (history.length < 2) return 0;
+    // Compare latest (index 0) with previous (index 1)
+    return (history[0].weight - history[1].weight).toFixed(1);
+  };
+  const weightChange = getWeightChange();
+
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.container, styles.center]}>
+        <ActivityIndicator size="large" color="#3B82F6" />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -117,27 +238,52 @@ const ProgressScreen = ({ navigation }) => {
               <Text style={styles.weightLabel}>Aktualna waga</Text>
               <Text style={styles.weightValue}>{currentWeight} kg</Text>
               <View style={styles.weightChange}>
-                <Text style={[styles.weightChangeText, weightChange < 0 && styles.weightChangeNegative]}>
-                  {weightChange > 0 ? '+' : ''}{weightChange} kg
+                <Text style={[styles.weightChangeText, parseFloat(weightChange) < 0 && styles.weightChangeNegative]}>
+                  {parseFloat(weightChange) > 0 ? '+' : ''}{weightChange} kg
                 </Text>
-                <Text style={styles.weightChangePeriod}>w tym miesiącu</Text>
+                <Text style={styles.weightChangePeriod}>ostatnio</Text>
               </View>
             </View>
 
             <View style={styles.weightTarget}>
               <Text style={styles.weightTargetLabel}>Cel</Text>
-              <Text style={styles.weightTargetValue}>{targetWeight} kg</Text>
+              <TouchableOpacity onPress={() => {
+                setNewTargetWeight(targetWeight.toString());
+                setShowTargetWeightModal(true);
+              }}>
+                <Text style={styles.weightTargetValue}>{targetWeight} kg</Text>
+              </TouchableOpacity>
             </View>
           </View>
 
           <View style={styles.weightHistoryCard}>
             <Text style={styles.cardTitle}>Historia wagi</Text>
-            {weightHistory.map((entry, index) => (
-              <View key={index} style={styles.historyItem}>
-                <Text style={styles.historyDate}>{entry.date}</Text>
-                <Text style={styles.historyValue}>{entry.weight} kg</Text>
+            {(progressData?.weight || []).slice(0, showAllWeightHistory ? undefined : 5).map((entry, index) => (
+              <View key={entry._id || index} style={styles.historyItem}>
+                <Text style={styles.historyDate}>
+                  {new Date(entry.date).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' })}
+                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <Text style={styles.historyValue}>{entry.weight} kg</Text>
+                  <TouchableOpacity onPress={() => handleDeleteWeight(entry._id)}>
+                    <Text style={{ color: '#EF4444', fontSize: 18 }}>×</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             ))}
+            {(!progressData?.weight || progressData.weight.length === 0) && (
+              <Text style={{ color: '#94A3B8', textAlign: 'center', padding: 10 }}>Brak pomiarów</Text>
+            )}
+            {(progressData?.weight?.length || 0) > 5 && (
+              <TouchableOpacity
+                style={styles.showMoreButton}
+                onPress={() => setShowAllWeightHistory(!showAllWeightHistory)}
+              >
+                <Text style={styles.showMoreText}>
+                  {showAllWeightHistory ? 'Pokaż mniej' : `Pokaż więcej (${progressData.weight.length - 5})`}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -149,7 +295,7 @@ const ProgressScreen = ({ navigation }) => {
               style={styles.addButton}
               onPress={() => setShowMeasurementsModal(true)}
             >
-              <Text style={styles.addButtonText}>+ Dodaj</Text>
+              <Text style={styles.addButtonText}>Edytuj</Text>
             </TouchableOpacity>
           </View>
 
@@ -157,25 +303,25 @@ const ProgressScreen = ({ navigation }) => {
             <View style={styles.measurementRow}>
               <View style={styles.measurementItem}>
                 <Text style={styles.measurementLabel}>Klatka</Text>
-                <Text style={styles.measurementValue}>{bodyMeasurements.chest} cm</Text>
+                <Text style={styles.measurementValue}>{progressData?.measurements?.chest || '-'} cm</Text>
               </View>
               <View style={styles.measurementItem}>
                 <Text style={styles.measurementLabel}>Talia</Text>
-                <Text style={styles.measurementValue}>{bodyMeasurements.waist} cm</Text>
+                <Text style={styles.measurementValue}>{progressData?.measurements?.waist || '-'} cm</Text>
               </View>
             </View>
             <View style={styles.measurementRow}>
               <View style={styles.measurementItem}>
                 <Text style={styles.measurementLabel}>Biceps</Text>
-                <Text style={styles.measurementValue}>{bodyMeasurements.biceps} cm</Text>
+                <Text style={styles.measurementValue}>{progressData?.measurements?.biceps || '-'} cm</Text>
               </View>
               <View style={styles.measurementItem}>
                 <Text style={styles.measurementLabel}>Uda</Text>
-                <Text style={styles.measurementValue}>{bodyMeasurements.thighs} cm</Text>
+                <Text style={styles.measurementValue}>{progressData?.measurements?.thighs || '-'} cm</Text>
               </View>
             </View>
             <Text style={styles.measurementUpdate}>
-              Ostatnia aktualizacja: {bodyMeasurements.lastUpdate}
+              Ostatnia aktualizacja: {progressData?.measurements?.lastUpdate || '-'}
             </Text>
           </View>
         </View>
@@ -183,24 +329,24 @@ const ProgressScreen = ({ navigation }) => {
         {/* Monthly Stats */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>STATYSTYKI (TEN MIESIĄC)</Text>
-          
+
           <View style={styles.statsGrid}>
             <View style={styles.statCard}>
-              <Text style={styles.statValue}>{monthlyStats.totalWorkouts}</Text>
+              <Text style={styles.statValue}>{stats?.totalWorkouts || 0}</Text>
               <Text style={styles.statLabel}>Treningów</Text>
             </View>
             <View style={styles.statCard}>
               <Text style={styles.statValue}>
-                {(monthlyStats.totalVolume / 1000).toFixed(1)}t
+                {((stats?.totalVolume || 0) / 1000).toFixed(1)}t
               </Text>
               <Text style={styles.statLabel}>Objętość</Text>
             </View>
             <View style={styles.statCard}>
-              <Text style={styles.statValue}>{monthlyStats.totalSets}</Text>
+              <Text style={styles.statValue}>{stats?.totalSets || 0}</Text>
               <Text style={styles.statLabel}>Serii</Text>
             </View>
             <View style={styles.statCard}>
-              <Text style={styles.statValue}>{monthlyStats.avgWorkoutDuration} min</Text>
+              <Text style={styles.statValue}>{stats?.avgWorkoutDuration || 0} min</Text>
               <Text style={styles.statLabel}>Śr. czas</Text>
             </View>
           </View>
@@ -218,35 +364,36 @@ const ProgressScreen = ({ navigation }) => {
             </TouchableOpacity>
           </View>
 
-          {selectedExercise ? (
+          {loadingExerciseStats ? (
+            <ActivityIndicator color="#3B82F6" />
+          ) : selectedExercise ? (
             <View style={styles.exerciseProgressCard}>
               <Text style={styles.exerciseProgressName}>{selectedExercise.name}</Text>
-              
+
               <View style={styles.exerciseStats}>
                 <View style={styles.exerciseStat}>
                   <Text style={styles.exerciseStatLabel}>Aktualny max</Text>
                   <Text style={styles.exerciseStatValue}>
-                    {exerciseProgress[selectedExercise.name]?.currentMax || 0} kg
+                    {exerciseProgress?.currentMax || 0} kg
                   </Text>
                 </View>
                 <View style={styles.exerciseStat}>
                   <Text style={styles.exerciseStatLabel}>Poprzedni max</Text>
                   <Text style={styles.exerciseStatValue}>
-                    {exerciseProgress[selectedExercise.name]?.previousMax || 0} kg
+                    {exerciseProgress?.previousMax || 0} kg
                   </Text>
                 </View>
                 <View style={styles.exerciseStat}>
                   <Text style={styles.exerciseStatLabel}>Postęp</Text>
                   <Text style={[styles.exerciseStatValue, styles.exerciseStatProgress]}>
-                    +{((exerciseProgress[selectedExercise.name]?.currentMax || 0) - 
-                       (exerciseProgress[selectedExercise.name]?.previousMax || 0))} kg
+                    +{((exerciseProgress?.currentMax || 0) - (exerciseProgress?.previousMax || 0)).toFixed(1)} kg
                   </Text>
                 </View>
               </View>
 
               <View style={styles.exerciseHistory}>
-                <Text style={styles.exerciseHistoryTitle}>Historia</Text>
-                {exerciseProgress[selectedExercise.name]?.history.map((entry, index) => (
+                <Text style={styles.exerciseHistoryTitle}>Ostatnie sesje</Text>
+                {(exerciseProgress?.history || []).slice(0, 5).map((entry, index) => (
                   <View key={index} style={styles.exerciseHistoryItem}>
                     <Text style={styles.exerciseHistoryDate}>{entry.date}</Text>
                     <View style={styles.exerciseHistoryStats}>
@@ -279,7 +426,7 @@ const ProgressScreen = ({ navigation }) => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Dodaj wagę</Text>
-            
+
             <View style={styles.modalInputGroup}>
               <Text style={styles.modalLabel}>Waga (kg)</Text>
               <TextInput
@@ -310,7 +457,7 @@ const ProgressScreen = ({ navigation }) => {
         </View>
       </Modal>
 
-      {/* Add Measurements Modal */}
+      {/* Measurements Modal */}
       <Modal
         visible={showMeasurementsModal}
         transparent
@@ -318,68 +465,74 @@ const ProgressScreen = ({ navigation }) => {
         onRequestClose={() => setShowMeasurementsModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Dodaj pomiary</Text>
-            
-            <View style={styles.modalInputGroup}>
-              <Text style={styles.modalLabel}>Klatka (cm)</Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="np. 102"
-                placeholderTextColor="#6B7280"
-                keyboardType="decimal-pad"
-              />
-            </View>
+          <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'flex-end' }}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Aktualizuj pomiary</Text>
 
-            <View style={styles.modalInputGroup}>
-              <Text style={styles.modalLabel}>Talia (cm)</Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="np. 85"
-                placeholderTextColor="#6B7280"
-                keyboardType="decimal-pad"
-              />
-            </View>
+              <View style={styles.modalInputGroup}>
+                <Text style={styles.modalLabel}>Klatka (cm)</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="0"
+                  placeholderTextColor="#6B7280"
+                  keyboardType="decimal-pad"
+                  value={measurementsDetails.chest}
+                  onChangeText={(t) => setMeasurementsDetails({ ...measurementsDetails, chest: t })}
+                />
+              </View>
 
-            <View style={styles.modalInputGroup}>
-              <Text style={styles.modalLabel}>Biceps (cm)</Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="np. 38"
-                placeholderTextColor="#6B7280"
-                keyboardType="decimal-pad"
-              />
-            </View>
+              <View style={styles.modalInputGroup}>
+                <Text style={styles.modalLabel}>Talia (cm)</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="0"
+                  placeholderTextColor="#6B7280"
+                  keyboardType="decimal-pad"
+                  value={measurementsDetails.waist}
+                  onChangeText={(t) => setMeasurementsDetails({ ...measurementsDetails, waist: t })}
+                />
+              </View>
 
-            <View style={styles.modalInputGroup}>
-              <Text style={styles.modalLabel}>Uda (cm)</Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="np. 58"
-                placeholderTextColor="#6B7280"
-                keyboardType="decimal-pad"
-              />
-            </View>
+              <View style={styles.modalInputGroup}>
+                <Text style={styles.modalLabel}>Biceps (cm)</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="0"
+                  placeholderTextColor="#6B7280"
+                  keyboardType="decimal-pad"
+                  value={measurementsDetails.biceps}
+                  onChangeText={(t) => setMeasurementsDetails({ ...measurementsDetails, biceps: t })}
+                />
+              </View>
 
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={styles.modalButtonCancel}
-                onPress={() => setShowMeasurementsModal(false)}
-              >
-                <Text style={styles.modalButtonCancelText}>Anuluj</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.modalButtonConfirm}
-                onPress={() => {
-                  console.log('Adding measurements');
-                  setShowMeasurementsModal(false);
-                  Alert.alert('Sukces', 'Pomiary zostały dodane');
-                }}
-              >
-                <Text style={styles.modalButtonConfirmText}>Dodaj</Text>
-              </TouchableOpacity>
+              <View style={styles.modalInputGroup}>
+                <Text style={styles.modalLabel}>Uda (cm)</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="0"
+                  placeholderTextColor="#6B7280"
+                  keyboardType="decimal-pad"
+                  value={measurementsDetails.thighs}
+                  onChangeText={(t) => setMeasurementsDetails({ ...measurementsDetails, thighs: t })}
+                />
+              </View>
+
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={styles.modalButtonCancel}
+                  onPress={() => setShowMeasurementsModal(false)}
+                >
+                  <Text style={styles.modalButtonCancelText}>Anuluj</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.modalButtonConfirm}
+                  onPress={handleUpdateMeasurements}
+                >
+                  <Text style={styles.modalButtonConfirmText}>Zapisz</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
+          </ScrollView>
         </View>
       </Modal>
 
@@ -393,18 +546,58 @@ const ProgressScreen = ({ navigation }) => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Wybierz ćwiczenie</Text>
-            
-            <ScrollView style={styles.exerciseList}>
-              {exercisesList.map((exercise) => (
+
+            {/* Muscle Group Filters */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.filterScrollView}
+              contentContainerStyle={styles.filterScrollContent}
+            >
+              {[
+                { value: 'all', label: 'Wszystkie' },
+                { value: 'Chest', label: 'Klatka' },
+                { value: 'Back', label: 'Plecy' },
+                { value: 'Legs', label: 'Nogi' },
+                { value: 'Shoulders', label: 'Barki' },
+                { value: 'Arms', label: 'Ramiona' },
+                { value: 'Core', label: 'Brzuch' },
+                { value: 'Full Body', label: 'FBW' },
+              ].map((filter) => (
                 <TouchableOpacity
-                  key={exercise.id}
-                  style={styles.exerciseOption}
-                  onPress={() => handleSelectExercise(exercise)}
+                  key={filter.value}
+                  style={[
+                    styles.filterChip,
+                    exerciseFilter === filter.value && styles.filterChipActive
+                  ]}
+                  onPress={() => setExerciseFilter(filter.value)}
                 >
-                  <Text style={styles.exerciseOptionName}>{exercise.name}</Text>
-                  <Text style={styles.exerciseOptionCategory}>{exercise.category}</Text>
+                  <Text style={[
+                    styles.filterChipText,
+                    exerciseFilter === filter.value && styles.filterChipTextActive
+                  ]}>
+                    {filter.label}
+                  </Text>
                 </TouchableOpacity>
               ))}
+            </ScrollView>
+
+            <ScrollView style={styles.exerciseList}>
+              {exercisesList
+                .filter(ex => exerciseFilter === 'all' || ex.muscleGroup === exerciseFilter)
+                .map((exercise) => (
+                  <TouchableOpacity
+                    key={exercise._id}
+                    style={styles.exerciseOption}
+                    onPress={() => fetchExerciseStats(exercise)}
+                  >
+                    <Text style={styles.exerciseOptionName}>{exercise.name}</Text>
+                    <Text style={styles.exerciseOptionCategory}>{exercise.muscleGroup}</Text>
+                  </TouchableOpacity>
+                ))}
+              {exercisesList.filter(ex => exerciseFilter === 'all' || ex.muscleGroup === exerciseFilter).length === 0 && (
+                <Text style={{ color: '#94A3B8', textAlign: 'center' }}>Brak ćwiczeń w tej kategorii</Text>
+              )}
             </ScrollView>
 
             <TouchableOpacity
@@ -416,6 +609,47 @@ const ProgressScreen = ({ navigation }) => {
           </View>
         </View>
       </Modal>
+
+      {/* Target Weight Modal */}
+      <Modal
+        visible={showTargetWeightModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowTargetWeightModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Ustaw cel wagowy</Text>
+
+            <View style={styles.modalInputGroup}>
+              <Text style={styles.modalLabel}>Waga docelowa (kg)</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="np. 75"
+                placeholderTextColor="#6B7280"
+                value={newTargetWeight}
+                onChangeText={setNewTargetWeight}
+                keyboardType="decimal-pad"
+              />
+            </View>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.modalButtonCancel}
+                onPress={() => setShowTargetWeightModal(false)}
+              >
+                <Text style={styles.modalButtonCancelText}>Anuluj</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalButtonConfirm}
+                onPress={handleSetTargetWeight}
+              >
+                <Text style={styles.modalButtonConfirmText}>Zapisz</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -424,6 +658,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0F172A',
+  },
+  center: {
+    justifyContent: 'center',
+    alignItems: 'center'
   },
   header: {
     paddingHorizontal: 20,
@@ -559,6 +797,18 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#E2E8F0',
+  },
+  showMoreButton: {
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#334155',
+    marginTop: 8,
+  },
+  showMoreText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#3B82F6',
   },
   measurementsCard: {
     backgroundColor: '#1E293B',
@@ -738,6 +988,34 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     textAlign: 'center',
   },
+  filterScrollView: {
+    maxHeight: 50,
+    marginBottom: 16,
+  },
+  filterScrollContent: {
+    gap: 8,
+    paddingHorizontal: 4,
+  },
+  filterChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#334155',
+    borderWidth: 1.5,
+    borderColor: '#334155',
+  },
+  filterChipActive: {
+    backgroundColor: '#3B82F6',
+    borderColor: '#3B82F6',
+  },
+  filterChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#94A3B8',
+  },
+  filterChipTextActive: {
+    color: '#FFFFFF',
+  },
   modalInputGroup: {
     marginBottom: 16,
   },
@@ -798,18 +1076,15 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     marginBottom: 8,
-    borderWidth: 1.5,
-    borderColor: '#334155',
   },
   exerciseOptionName: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
   },
   exerciseOptionCategory: {
     fontSize: 13,
     color: '#94A3B8',
-    fontWeight: '500',
   },
 });
 

@@ -10,180 +10,28 @@ import {
   Alert,
 } from 'react-native';
 
+import { useFocusEffect } from '@react-navigation/native';
+import api from '../services/api';
+
 const WorkoutHistoryScreen = ({ navigation }) => {
   const [selectedFilter, setSelectedFilter] = useState('all'); // all, push, pull, legs
+  const [workouts, setWorkouts] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Przykładowe dane treningów
-  const workouts = [
-    {
-      id: 1,
-      name: 'Push A',
-      date: '2024-01-12',
-      time: '14:30',
-      duration: '52 min',
-      exercises: [
-        {
-          id: 1,
-          name: 'Bench Press',
-          numSets: 4,
-          sets: [
-            { id: 1, weight: '80', reps: '10' },
-            { id: 2, weight: '80', reps: '9' },
-            { id: 3, weight: '80', reps: '8' },
-            { id: 4, weight: '75', reps: '10' },
-          ]
-        },
-        {
-          id: 2,
-          name: 'Incline DB Press',
-          numSets: 3,
-          sets: [
-            { id: 1, weight: '32', reps: '10' },
-            { id: 2, weight: '32', reps: '9' },
-            { id: 3, weight: '30', reps: '10' },
-          ]
-        },
-        {
-          id: 3,
-          name: 'Cable Flyes',
-          numSets: 3,
-          sets: [
-            { id: 1, weight: '15', reps: '12' },
-            { id: 2, weight: '15', reps: '12' },
-            { id: 3, weight: '15', reps: '10' },
-          ]
-        },
-      ],
-      type: 'push',
-    },
-    {
-      id: 2,
-      name: 'Pull B',
-      date: '2024-01-10',
-      time: '16:15',
-      duration: '48 min',
-      exercises: [
-        {
-          id: 1,
-          name: 'Deadlift',
-          numSets: 4,
-          sets: [
-            { id: 1, weight: '120', reps: '6' },
-            { id: 2, weight: '120', reps: '6' },
-            { id: 3, weight: '120', reps: '5' },
-            { id: 4, weight: '110', reps: '6' },
-          ]
-        },
-        {
-          id: 2,
-          name: 'Pull-ups',
-          numSets: 4,
-          sets: [
-            { id: 1, weight: '0', reps: '8' },
-            { id: 2, weight: '0', reps: '8' },
-            { id: 3, weight: '0', reps: '7' },
-            { id: 4, weight: '0', reps: '6' },
-          ]
-        },
-      ],
-      type: 'pull',
-    },
-    {
-      id: 3,
-      name: 'Legs A',
-      date: '2024-01-08',
-      time: '10:00',
-      duration: '65 min',
-      exercises: [
-        {
-          id: 1,
-          name: 'Squat',
-          numSets: 4,
-          sets: [
-            { id: 1, weight: '100', reps: '8' },
-            { id: 2, weight: '100', reps: '8' },
-            { id: 3, weight: '100', reps: '7' },
-            { id: 4, weight: '95', reps: '8' },
-          ]
-        },
-        {
-          id: 2,
-          name: 'Romanian Deadlift',
-          numSets: 4,
-          sets: [
-            { id: 1, weight: '80', reps: '10' },
-            { id: 2, weight: '80', reps: '10' },
-            { id: 3, weight: '80', reps: '9' },
-            { id: 4, weight: '75', reps: '10' },
-          ]
-        },
-      ],
-      type: 'legs',
-    },
-    {
-      id: 4,
-      name: 'Push B',
-      date: '2024-01-06',
-      time: '15:45',
-      duration: '50 min',
-      exercises: [
-        {
-          id: 1,
-          name: 'Incline Bench Press',
-          numSets: 4,
-          sets: [
-            { id: 1, weight: '70', reps: '10' },
-            { id: 2, weight: '70', reps: '9' },
-            { id: 3, weight: '70', reps: '8' },
-            { id: 4, weight: '65', reps: '10' },
-          ]
-        },
-      ],
-      type: 'push',
-    },
-    {
-      id: 5,
-      name: 'Pull A',
-      date: '2024-01-04',
-      time: '17:00',
-      duration: '55 min',
-      exercises: [
-        {
-          id: 1,
-          name: 'Pull-ups',
-          numSets: 4,
-          sets: [
-            { id: 1, weight: '0', reps: '8' },
-            { id: 2, weight: '0', reps: '8' },
-            { id: 3, weight: '0', reps: '7' },
-            { id: 4, weight: '0', reps: '6' },
-          ]
-        },
-      ],
-      type: 'pull',
-    },
-    {
-      id: 6,
-      name: 'Legs B',
-      date: '2024-01-02',
-      time: '11:30',
-      duration: '60 min',
-      exercises: [
-        {
-          id: 1,
-          name: 'Front Squat',
-          numSets: 4,
-          sets: [
-            { id: 1, weight: '80', reps: '8' },
-            { id: 2, weight: '80', reps: '8' },
-            { id: 3, weight: '80', reps: '7' },
-            { id: 4, weight: '75', reps: '8' },
-          ]
-        },
-      ],
-      type: 'legs',
-    },
-  ];
+  const fetchWorkouts = async () => {
+    try {
+      setLoading(true);
+      const data = await api.getWorkouts();
+      if (data) {
+        setWorkouts(data);
+      }
+    } catch (error) {
+      console.error('Error fetching workouts:', error);
+      Alert.alert('Błąd', 'Nie udało się pobrać historii treningów');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filters = [
     { key: 'all', label: 'Wszystkie' },
@@ -191,6 +39,12 @@ const WorkoutHistoryScreen = ({ navigation }) => {
     { key: 'pull', label: 'Pull' },
     { key: 'legs', label: 'Legs' },
   ];
+
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchWorkouts();
+    }, [])
+  );
 
   const filteredWorkouts =
     selectedFilter === 'all'
@@ -236,9 +90,14 @@ const WorkoutHistoryScreen = ({ navigation }) => {
         {
           text: 'Usuń',
           style: 'destructive',
-          onPress: () => {
-            console.log('Deleting workout:', workoutId);
-            // Tutaj logika usunięcia
+          onPress: async () => {
+            try {
+              await api.deleteWorkout(workoutId);
+              fetchWorkouts();
+            } catch (err) {
+              console.error(err);
+              Alert.alert('Błąd', 'Nie udało się usunąć treningu');
+            }
           },
         },
       ]
@@ -302,8 +161,8 @@ const WorkoutHistoryScreen = ({ navigation }) => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {filteredWorkouts.map((workout) => (
-          <View key={workout.id} style={styles.workoutCard}>
+        {filteredWorkouts.map((workout, index) => (
+          <View key={workout._id ? String(workout._id) : (workout.id ? String(workout.id) : String(index))} style={styles.workoutCard}>
             <TouchableOpacity
               style={styles.workoutCardContent}
               activeOpacity={0.7}
@@ -314,38 +173,38 @@ const WorkoutHistoryScreen = ({ navigation }) => {
                   <Text style={styles.workoutName}>{workout.name}</Text>
                   <View style={styles.workoutMeta}>
                     <Text style={styles.workoutDate}>
-                      {formatDate(workout.date)}
+                      {workout.date ? formatDate(workout.date) : ''}
                     </Text>
                     <Text style={styles.metaDivider}>•</Text>
-                    <Text style={styles.workoutTime}>{workout.time}</Text>
+                    <Text style={styles.workoutTime}>{workout.time || '-'}</Text>
                   </View>
                 </View>
                 <View style={styles.durationBadge}>
-                  <Text style={styles.durationText}>{workout.duration}</Text>
+                  <Text style={styles.durationText}>{workout.duration || '-'}</Text>
                 </View>
               </View>
 
               <View style={styles.workoutStats}>
                 <View style={styles.statItem}>
-                  <Text style={styles.statValue}>{workout.exercises.length}</Text>
+                  <Text style={styles.statValue}>{workout.exercises ? workout.exercises.length : 0}</Text>
                   <Text style={styles.statLabel}>Ćwiczeń</Text>
                 </View>
                 <View style={styles.statDivider} />
                 <View style={styles.statItem}>
                   <Text style={styles.statValue}>
-                    {workout.exercises.reduce((sum, ex) => sum + (ex.numSets || 0), 0)}
+                    {workout.exercises ? workout.exercises.reduce((sum, ex) => sum + (ex.numSets || 0), 0) : 0}
                   </Text>
                   <Text style={styles.statLabel}>Setów</Text>
                 </View>
                 <View style={styles.statDivider} />
                 <View style={styles.statItem}>
                   <Text style={styles.statValue}>
-                    {(workout.exercises.reduce((sum, ex) => {
-                      const exerciseVolume = ex.sets.reduce((vol, set) => {
+                    {workout.exercises ? (workout.exercises.reduce((sum, ex) => {
+                      const exerciseVolume = ex.sets ? ex.sets.reduce((vol, set) => {
                         return vol + (parseFloat(set.weight || 0) * parseFloat(set.reps || 0));
-                      }, 0);
+                      }, 0) : 0;
                       return sum + exerciseVolume;
-                    }, 0) / 1000).toFixed(1)}t
+                    }, 0) / 1000).toFixed(1) : '0.0'}t
                   </Text>
                   <Text style={styles.statLabel}>Objętość</Text>
                 </View>
@@ -361,7 +220,7 @@ const WorkoutHistoryScreen = ({ navigation }) => {
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.actionButton, styles.deleteButton]}
-                onPress={() => handleDeleteWorkout(workout.id, workout.name)}
+                onPress={() => handleDeleteWorkout(workout._id || workout.id, workout.name)}
               >
                 <Text style={[styles.actionButtonText, styles.deleteText]}>
                   Usuń

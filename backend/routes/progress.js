@@ -36,8 +36,8 @@ router.post('/weight', auth, async (req, res) => {
       progress = new Progress({ userId: req.user._id });
     }
 
-    progress.weight.push({ date, weight });
-    progress.weight.sort((a, b) => new Date(b.date) - new Date(a.date));
+    progress.weight.push({ date, weight, timestamp: new Date() });
+    progress.weight.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
     await progress.save();
 
@@ -98,6 +98,27 @@ router.put('/target-weight', auth, async (req, res) => {
   }
 });
 
+// Delete weight entry
+router.delete('/weight/:weightId', auth, async (req, res) => {
+  try {
+    const { weightId } = req.params;
+
+    let progress = await Progress.findOne({ userId: req.user._id });
+
+    if (!progress) {
+      return res.status(404).json({ message: 'Progress data not found' });
+    }
+
+    progress.weight = progress.weight.filter(w => w._id.toString() !== weightId);
+    await progress.save();
+
+    res.json(progress);
+  } catch (error) {
+    console.error('Delete weight error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Get statistics
 router.get('/stats', auth, async (req, res) => {
   try {
@@ -141,6 +162,57 @@ router.get('/stats', auth, async (req, res) => {
     });
   } catch (error) {
     console.error('Get stats error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get specific exercise progress
+router.get('/exercise/:name', auth, async (req, res) => {
+  try {
+    const exerciseName = req.params.name;
+    // Find all workouts containing this exercise for the user
+    const workouts = await Workout.find({
+      userId: req.user._id,
+      'exercises.name': exerciseName,
+    }).sort({ date: 1 }); // Sort by date ascending
+
+    const history = [];
+
+    workouts.forEach((w) => {
+      const ex = w.exercises.find((e) => e.name === exerciseName);
+      if (ex) {
+        let maxWeight = 0;
+        let volume = 0;
+        ex.sets.forEach((s) => {
+          const weight = parseFloat(s.weight || 0);
+          const reps = parseFloat(s.reps || 0);
+          if (weight > maxWeight) maxWeight = weight;
+          volume += weight * reps;
+        });
+
+        history.push({
+          date: w.date,
+          maxWeight,
+          volume,
+        });
+      }
+    });
+
+    const currentMax = history.length > 0 ? history[history.length - 1].maxWeight : 0;
+    const previousMax = history.length > 1 ? history[history.length - 2].maxWeight : 0;
+    const totalVolume = history.reduce((sum, item) => sum + item.volume, 0);
+    const sessions = history.length;
+
+    res.json({
+      currentMax,
+      previousMax,
+      totalVolume,
+      sessions,
+      history: history.reverse()
+    });
+
+  } catch (error) {
+    console.error('Get exercise progress error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

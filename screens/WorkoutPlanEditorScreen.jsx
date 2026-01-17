@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,302 +10,66 @@ import {
   TouchableOpacity,
   Modal,
   Alert,
+  ActivityIndicator,
+  FlatList,
 } from 'react-native';
+
+import { useFocusEffect } from '@react-navigation/native';
+import api from '../services/api';
+
+const TEMP_USER_ID = '65a000000000000000000001';
 
 const WorkoutPlanEditorScreen = ({ navigation, route }) => {
   const isEditing = route?.params?.plan !== undefined;
+  // Handle suggestion passing type or full plan
   const existingPlan = route?.params?.plan;
+  const suggestedType = route?.params?.type; // validation: from insights
 
-  const [planName, setPlanName] = useState(existingPlan?.name || '');
+  const [planName, setPlanName] = useState(existingPlan?.name || (suggestedType ? `${suggestedType} Plan` : ''));
   const [planDescription, setPlanDescription] = useState(
     existingPlan?.description || ''
   );
-  const [exercises, setExercises] = useState(existingPlan?.exercisesList || []);
-  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [exercises, setExercises] = useState(existingPlan?.exercisesList || []); // Note: Backend uses 'exercises', frontend UI mapped it to exercisesList in previous mock. We need to align.
+  // Backend schema: exercises: [{name, numSets, sets: [{weight, reps}] }]
+  // Let's assume we align to backend schema now.
 
-  // Szablony planów treningowych z osobnymi setami
-  const templates = {
-    push: {
-      name: 'Push',
-      description: 'Klatka, ramiona, triceps',
-      exercises: [
-        {
-          id: 1,
-          name: 'Bench Press',
-          numSets: 4,
-          sets: [
-            { id: 1, weight: '', reps: '' },
-            { id: 2, weight: '', reps: '' },
-            { id: 3, weight: '', reps: '' },
-            { id: 4, weight: '', reps: '' },
-          ]
-        },
-        {
-          id: 2,
-          name: 'Incline DB Press',
-          numSets: 3,
-          sets: [
-            { id: 1, weight: '', reps: '' },
-            { id: 2, weight: '', reps: '' },
-            { id: 3, weight: '', reps: '' },
-          ]
-        },
-        {
-          id: 3,
-          name: 'Cable Flyes',
-          numSets: 3,
-          sets: [
-            { id: 1, weight: '', reps: '' },
-            { id: 2, weight: '', reps: '' },
-            { id: 3, weight: '', reps: '' },
-          ]
-        },
-        {
-          id: 4,
-          name: 'Overhead Press',
-          numSets: 4,
-          sets: [
-            { id: 1, weight: '', reps: '' },
-            { id: 2, weight: '', reps: '' },
-            { id: 3, weight: '', reps: '' },
-            { id: 4, weight: '', reps: '' },
-          ]
-        },
-        {
-          id: 5,
-          name: 'Lateral Raises',
-          numSets: 3,
-          sets: [
-            { id: 1, weight: '', reps: '' },
-            { id: 2, weight: '', reps: '' },
-            { id: 3, weight: '', reps: '' },
-          ]
-        },
-        {
-          id: 6,
-          name: 'Tricep Pushdown',
-          numSets: 3,
-          sets: [
-            { id: 1, weight: '', reps: '' },
-            { id: 2, weight: '', reps: '' },
-            { id: 3, weight: '', reps: '' },
-          ]
-        },
-      ],
-    },
-    pull: {
-      name: 'Pull',
-      description: 'Plecy, biceps, martwy ciąg',
-      exercises: [
-        {
-          id: 1,
-          name: 'Deadlift',
-          numSets: 4,
-          sets: [
-            { id: 1, weight: '', reps: '' },
-            { id: 2, weight: '', reps: '' },
-            { id: 3, weight: '', reps: '' },
-            { id: 4, weight: '', reps: '' },
-          ]
-        },
-        {
-          id: 2,
-          name: 'Pull-ups',
-          numSets: 4,
-          sets: [
-            { id: 1, weight: '', reps: '' },
-            { id: 2, weight: '', reps: '' },
-            { id: 3, weight: '', reps: '' },
-            { id: 4, weight: '', reps: '' },
-          ]
-        },
-        {
-          id: 3,
-          name: 'Barbell Row',
-          numSets: 4,
-          sets: [
-            { id: 1, weight: '', reps: '' },
-            { id: 2, weight: '', reps: '' },
-            { id: 3, weight: '', reps: '' },
-            { id: 4, weight: '', reps: '' },
-          ]
-        },
-        {
-          id: 4,
-          name: 'Face Pulls',
-          numSets: 3,
-          sets: [
-            { id: 1, weight: '', reps: '' },
-            { id: 2, weight: '', reps: '' },
-            { id: 3, weight: '', reps: '' },
-          ]
-        },
-        {
-          id: 5,
-          name: 'Barbell Curl',
-          numSets: 3,
-          sets: [
-            { id: 1, weight: '', reps: '' },
-            { id: 2, weight: '', reps: '' },
-            { id: 3, weight: '', reps: '' },
-          ]
-        },
-        {
-          id: 6,
-          name: 'Hammer Curl',
-          numSets: 3,
-          sets: [
-            { id: 1, weight: '', reps: '' },
-            { id: 2, weight: '', reps: '' },
-            { id: 3, weight: '', reps: '' },
-          ]
-        },
-      ],
-    },
-    legs: {
-      name: 'Legs',
-      description: 'Nogi, pośladki, łydki',
-      exercises: [
-        {
-          id: 1,
-          name: 'Squat',
-          numSets: 4,
-          sets: [
-            { id: 1, weight: '', reps: '' },
-            { id: 2, weight: '', reps: '' },
-            { id: 3, weight: '', reps: '' },
-            { id: 4, weight: '', reps: '' },
-          ]
-        },
-        {
-          id: 2,
-          name: 'Romanian Deadlift',
-          numSets: 4,
-          sets: [
-            { id: 1, weight: '', reps: '' },
-            { id: 2, weight: '', reps: '' },
-            { id: 3, weight: '', reps: '' },
-            { id: 4, weight: '', reps: '' },
-          ]
-        },
-        {
-          id: 3,
-          name: 'Leg Press',
-          numSets: 3,
-          sets: [
-            { id: 1, weight: '', reps: '' },
-            { id: 2, weight: '', reps: '' },
-            { id: 3, weight: '', reps: '' },
-          ]
-        },
-        {
-          id: 4,
-          name: 'Leg Curl',
-          numSets: 3,
-          sets: [
-            { id: 1, weight: '', reps: '' },
-            { id: 2, weight: '', reps: '' },
-            { id: 3, weight: '', reps: '' },
-          ]
-        },
-        {
-          id: 5,
-          name: 'Leg Extension',
-          numSets: 3,
-          sets: [
-            { id: 1, weight: '', reps: '' },
-            { id: 2, weight: '', reps: '' },
-            { id: 3, weight: '', reps: '' },
-          ]
-        },
-        {
-          id: 6,
-          name: 'Calf Raises',
-          numSets: 4,
-          sets: [
-            { id: 1, weight: '', reps: '' },
-            { id: 2, weight: '', reps: '' },
-            { id: 3, weight: '', reps: '' },
-            { id: 4, weight: '', reps: '' },
-          ]
-        },
-      ],
-    },
-    fbw: {
-      name: 'Full Body Workout',
-      description: 'Kompleksowy trening całego ciała',
-      exercises: [
-        {
-          id: 1,
-          name: 'Squat',
-          numSets: 4,
-          sets: [
-            { id: 1, weight: '', reps: '' },
-            { id: 2, weight: '', reps: '' },
-            { id: 3, weight: '', reps: '' },
-            { id: 4, weight: '', reps: '' },
-          ]
-        },
-        {
-          id: 2,
-          name: 'Bench Press',
-          numSets: 4,
-          sets: [
-            { id: 1, weight: '', reps: '' },
-            { id: 2, weight: '', reps: '' },
-            { id: 3, weight: '', reps: '' },
-            { id: 4, weight: '', reps: '' },
-          ]
-        },
-        {
-          id: 3,
-          name: 'Barbell Row',
-          numSets: 4,
-          sets: [
-            { id: 1, weight: '', reps: '' },
-            { id: 2, weight: '', reps: '' },
-            { id: 3, weight: '', reps: '' },
-            { id: 4, weight: '', reps: '' },
-          ]
-        },
-        {
-          id: 4,
-          name: 'Overhead Press',
-          numSets: 3,
-          sets: [
-            { id: 1, weight: '', reps: '' },
-            { id: 2, weight: '', reps: '' },
-            { id: 3, weight: '', reps: '' },
-          ]
-        },
-        {
-          id: 5,
-          name: 'Romanian Deadlift',
-          numSets: 3,
-          sets: [
-            { id: 1, weight: '', reps: '' },
-            { id: 2, weight: '', reps: '' },
-            { id: 3, weight: '', reps: '' },
-          ]
-        },
-        {
-          id: 6,
-          name: 'Pull-ups',
-          numSets: 3,
-          sets: [
-            { id: 1, weight: '', reps: '' },
-            { id: 2, weight: '', reps: '' },
-            { id: 3, weight: '', reps: '' },
-          ]
-        },
-      ],
-    },
+  const [availableExercises, setAvailableExercises] = useState([]);
+  const [loadingExercises, setLoadingExercises] = useState(false);
+  const [showExerciseModal, setShowExerciseModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetchExercises();
+  }, []);
+
+  const fetchExercises = async () => {
+    try {
+      setLoadingExercises(true);
+
+      let data = await api.getExercises();
+
+      // Auto-seed if empty (optional safety)
+      if (data && data.length === 0) {
+        await api.seedExercises();
+        data = await api.getExercises();
+      }
+
+      if (data) {
+        setAvailableExercises(data);
+      }
+    } catch (err) {
+      console.log('Error fetching exercises', err);
+      // Fallback or alert
+    } finally {
+      setLoadingExercises(false);
+    }
   };
 
-  const addExercise = () => {
+  const addExercise = (exerciseDef) => {
     const newExercise = {
-      id: Date.now(),
-      name: '',
+      // If we are using MongoDB embedded docs, id might be _id, but for frontend list key we use timestamp or random
+      localId: Date.now().toString(),
+      name: exerciseDef.name,
       numSets: 3,
       sets: [
         { id: 1, weight: '', reps: '' },
@@ -314,61 +78,47 @@ const WorkoutPlanEditorScreen = ({ navigation, route }) => {
       ],
     };
     setExercises([...exercises, newExercise]);
+    setShowExerciseModal(false);
   };
 
-  const removeExercise = (id) => {
-    setExercises(exercises.filter((ex) => ex.id !== id));
+  const removeExercise = (indexToRemove) => {
+    setExercises(exercises.filter((_, index) => index !== indexToRemove));
   };
 
-  const updateExerciseName = (id, name) => {
-    setExercises(
-      exercises.map((ex) => (ex.id === id ? { ...ex, name } : ex))
-    );
+  const updateExerciseName = (index, name) => {
+    // Just for manual override if needed
+    const updated = [...exercises];
+    updated[index].name = name;
+    setExercises(updated);
   };
 
-  const updateNumSets = (exerciseId, numSets) => {
-    const num = parseInt(numSets) || 0;
+  const updateNumSets = (index, numSetsStr) => {
+    const num = parseInt(numSetsStr) || 0;
     if (num < 1 || num > 10) return;
 
-    setExercises(
-      exercises.map((ex) => {
-        if (ex.id === exerciseId) {
-          const newSets = [];
-          for (let i = 0; i < num; i++) {
-            newSets.push(ex.sets[i] || { id: i + 1, weight: '', reps: '' });
-          }
-          return { ...ex, numSets: num, sets: newSets };
-        }
-        return ex;
-      })
-    );
+    const updated = [...exercises];
+    const currentSets = updated[index].sets;
+    const newSets = [];
+    for (let i = 0; i < num; i++) {
+      // preserve existing values if increasing count
+      if (i < currentSets.length) {
+        newSets.push(currentSets[i]);
+      } else {
+        newSets.push({ id: i + 1, weight: '', reps: '' });
+      }
+    }
+    updated[index].numSets = num;
+    updated[index].sets = newSets;
+    setExercises(updated);
   };
 
-  const updateSet = (exerciseId, setId, field, value) => {
-    setExercises(
-      exercises.map((ex) => {
-        if (ex.id === exerciseId) {
-          return {
-            ...ex,
-            sets: ex.sets.map((set) =>
-              set.id === setId ? { ...set, [field]: value } : set
-            ),
-          };
-        }
-        return ex;
-      })
-    );
+  const updateSet = (exerciseIndex, setIndex, field, value) => {
+    const updated = [...exercises];
+    updated[exerciseIndex].sets[setIndex][field] = value;
+    setExercises(updated);
   };
 
-  const loadTemplate = (templateKey) => {
-    const template = templates[templateKey];
-    setPlanName(template.name);
-    setPlanDescription(template.description);
-    setExercises(template.exercises);
-    setShowTemplateModal(false);
-  };
-
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!planName.trim()) {
       Alert.alert('Błąd', 'Podaj nazwę planu');
       return;
@@ -378,10 +128,40 @@ const WorkoutPlanEditorScreen = ({ navigation, route }) => {
       return;
     }
 
-    console.log('Saving plan:', { name: planName, description: planDescription, exercises });
-    Alert.alert('Sukces', 'Plan został zapisany', [
-      { text: 'OK', onPress: () => navigation.goBack() },
-    ]);
+    setSaving(true);
+    try {
+      const payload = {
+        name: planName,
+        description: planDescription,
+        exercises: exercises.map(ex => ({
+          name: ex.name,
+          numSets: ex.numSets,
+          sets: ex.sets.map(s => ({ weight: s.weight, reps: s.reps }))
+        })),
+        type: 'Szablon', // User-created plans are templates
+        userId: TEMP_USER_ID
+      };
+
+      let response;
+
+      if (isEditing) {
+        response = await api.updateWorkoutPlan(existingPlan._id, payload);
+      } else {
+        // api.createWorkoutPlan returns the data directly if successful, or throws
+        response = await api.createWorkoutPlan(payload);
+      }
+
+      // If we reach here, it means success (since api.js throws on error)
+      Alert.alert('Sukces', 'Plan został zapisany', [
+        { text: 'OK', onPress: () => navigation.goBack() },
+      ]);
+
+    } catch (error) {
+      console.error(error);
+      Alert.alert('Błąd', 'Wystąpił problem z połączeniem');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -398,8 +178,16 @@ const WorkoutPlanEditorScreen = ({ navigation, route }) => {
         <Text style={styles.title}>
           {isEditing ? 'Edytuj Plan' : 'Nowy Plan'}
         </Text>
-        <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-          <Text style={styles.saveButtonText}>Zapisz</Text>
+        <TouchableOpacity
+          style={[styles.saveButton, saving && { opacity: 0.7 }]}
+          onPress={handleSave}
+          disabled={saving}
+        >
+          {saving ? (
+            <ActivityIndicator size="small" color="#FFF" />
+          ) : (
+            <Text style={styles.saveButtonText}>Zapisz</Text>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -432,34 +220,24 @@ const WorkoutPlanEditorScreen = ({ navigation, route }) => {
           />
         </View>
 
-        {!isEditing && exercises.length === 0 && (
-          <TouchableOpacity
-            style={styles.templateButton}
-            onPress={() => setShowTemplateModal(true)}
-          >
-            <Text style={styles.templateIcon}>📋</Text>
-            <Text style={styles.templateButtonText}>Użyj szablonu planu</Text>
-          </TouchableOpacity>
-        )}
-
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.label}>ĆWICZENIA ({exercises.length})</Text>
             <TouchableOpacity
               style={styles.addExerciseButton}
-              onPress={addExercise}
+              onPress={() => setShowExerciseModal(true)}
             >
-              <Text style={styles.addExerciseText}>+ Dodaj</Text>
+              <Text style={styles.addExerciseText}>+ Dodaj z Bazy</Text>
             </TouchableOpacity>
           </View>
 
           {exercises.map((exercise, index) => (
-            <View key={exercise.id} style={styles.exerciseCard}>
+            <View key={exercise.localId || index} style={styles.exerciseCard}>
               <View style={styles.exerciseHeader}>
                 <Text style={styles.exerciseNumber}>{index + 1}</Text>
                 <TouchableOpacity
                   style={styles.removeButton}
-                  onPress={() => removeExercise(exercise.id)}
+                  onPress={() => removeExercise(index)}
                 >
                   <Text style={styles.removeButtonText}>×</Text>
                 </TouchableOpacity>
@@ -470,9 +248,8 @@ const WorkoutPlanEditorScreen = ({ navigation, route }) => {
                 placeholder="Nazwa ćwiczenia"
                 placeholderTextColor="#6B7280"
                 value={exercise.name}
-                onChangeText={(value) =>
-                  updateExerciseName(exercise.id, value)
-                }
+                onChangeText={(value) => updateExerciseName(index, value)}
+                editable={false} // Name comes from DB 
               />
 
               <View style={styles.numSetsContainer}>
@@ -482,9 +259,7 @@ const WorkoutPlanEditorScreen = ({ navigation, route }) => {
                   placeholder="3"
                   placeholderTextColor="#6B7280"
                   value={exercise.numSets.toString()}
-                  onChangeText={(value) =>
-                    updateNumSets(exercise.id, value)
-                  }
+                  onChangeText={(value) => updateNumSets(index, value)}
                   keyboardType="numeric"
                   maxLength={2}
                 />
@@ -492,17 +267,17 @@ const WorkoutPlanEditorScreen = ({ navigation, route }) => {
 
               <View style={styles.setsContainer}>
                 {exercise.sets.map((set, setIndex) => (
-                  <View key={set.id} style={styles.setRow}>
+                  <View key={setIndex} style={styles.setRow}>
                     <Text style={styles.setNumber}>{setIndex + 1}</Text>
                     <View style={styles.setInputs}>
                       <View style={styles.setInputGroup}>
                         <TextInput
                           style={styles.setInput}
-                          placeholder="Ciężar"
+                          placeholder="kg"
                           placeholderTextColor="#6B7280"
                           value={set.weight}
                           onChangeText={(value) =>
-                            updateSet(exercise.id, set.id, 'weight', value)
+                            updateSet(index, setIndex, 'weight', value)
                           }
                           keyboardType="numeric"
                         />
@@ -512,11 +287,11 @@ const WorkoutPlanEditorScreen = ({ navigation, route }) => {
                       <View style={styles.setInputGroup}>
                         <TextInput
                           style={styles.setInput}
-                          placeholder="Reps"
+                          placeholder="reps"
                           placeholderTextColor="#6B7280"
                           value={set.reps}
                           onChangeText={(value) =>
-                            updateSet(exercise.id, set.id, 'reps', value)
+                            updateSet(index, setIndex, 'reps', value)
                           }
                           keyboardType="numeric"
                         />
@@ -534,86 +309,52 @@ const WorkoutPlanEditorScreen = ({ navigation, route }) => {
               <Text style={styles.emptyStateIcon}>💪</Text>
               <Text style={styles.emptyStateText}>Brak ćwiczeń</Text>
               <Text style={styles.emptyStateSubtext}>
-                Dodaj ćwiczenie lub użyj szablonu
+                Dodaj ćwiczenie z bazy danych
               </Text>
             </View>
           )}
         </View>
       </ScrollView>
 
+      {/* Exercise Picker Modal */}
       <Modal
-        visible={showTemplateModal}
-        transparent
+        visible={showExerciseModal}
         animationType="slide"
-        onRequestClose={() => setShowTemplateModal(false)}
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowExerciseModal(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Wybierz szablon planu</Text>
-
-            <TouchableOpacity
-              style={styles.templateOption}
-              onPress={() => loadTemplate('push')}
-            >
-              <Text style={styles.templateOptionIcon}>💪</Text>
-              <View style={styles.templateOptionInfo}>
-                <Text style={styles.templateOptionTitle}>Push</Text>
-                <Text style={styles.templateOptionDesc}>
-                  Klatka, ramiona, triceps (6 ćwiczeń)
-                </Text>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.templateOption}
-              onPress={() => loadTemplate('pull')}
-            >
-              <Text style={styles.templateOptionIcon}>🏋️</Text>
-              <View style={styles.templateOptionInfo}>
-                <Text style={styles.templateOptionTitle}>Pull</Text>
-                <Text style={styles.templateOptionDesc}>
-                  Plecy, biceps, martwy ciąg (6 ćwiczeń)
-                </Text>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.templateOption}
-              onPress={() => loadTemplate('legs')}
-            >
-              <Text style={styles.templateOptionIcon}>🦵</Text>
-              <View style={styles.templateOptionInfo}>
-                <Text style={styles.templateOptionTitle}>Legs</Text>
-                <Text style={styles.templateOptionDesc}>
-                  Nogi, pośladki, łydki (6 ćwiczeń)
-                </Text>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.templateOption}
-              onPress={() => loadTemplate('fbw')}
-            >
-              <Text style={styles.templateOptionIcon}>🔥</Text>
-              <View style={styles.templateOptionInfo}>
-                <Text style={styles.templateOptionTitle}>
-                  Full Body Workout
-                </Text>
-                <Text style={styles.templateOptionDesc}>
-                  Kompleksowy trening (6 ćwiczeń)
-                </Text>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.modalCancelButton}
-              onPress={() => setShowTemplateModal(false)}
-            >
-              <Text style={styles.modalCancelText}>Anuluj</Text>
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Wybierz ćwiczenie</Text>
+            <TouchableOpacity onPress={() => setShowExerciseModal(false)}>
+              <Text style={styles.closeModalText}>Zamknij</Text>
             </TouchableOpacity>
           </View>
-        </View>
+
+          {loadingExercises ? (
+            <ActivityIndicator size="large" color="#3B82F6" style={{ marginTop: 20 }} />
+          ) : (
+            <FlatList
+              data={availableExercises}
+              keyExtractor={(item) => item._id}
+              contentContainerStyle={{ padding: 20 }}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.exerciseOption}
+                  onPress={() => addExercise(item)}
+                >
+                  <View>
+                    <Text style={styles.exerciseOptionName}>{item.name}</Text>
+                    <Text style={styles.exerciseOptionDetail}>{item.muscleGroup} • {item.equipment}</Text>
+                  </View>
+                  <Text style={styles.addIcon}>+</Text>
+                </TouchableOpacity>
+              )}
+            />
+          )}
+        </SafeAreaView>
       </Modal>
+
     </SafeAreaView>
   );
 };
@@ -652,6 +393,8 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     backgroundColor: '#3B82F6',
     borderRadius: 8,
+    minWidth: 80,
+    alignItems: 'center'
   },
   saveButtonText: {
     fontSize: 14,
@@ -690,25 +433,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     borderWidth: 1.5,
     borderColor: '#334155',
-  },
-  templateButton: {
-    backgroundColor: '#1E293B',
-    borderRadius: 12,
-    padding: 18,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 24,
-    borderWidth: 1.5,
-    borderColor: '#3B82F6',
-  },
-  templateIcon: {
-    fontSize: 24,
-    marginRight: 12,
-  },
-  templateButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#3B82F6',
   },
   addExerciseButton: {
     paddingHorizontal: 12,
@@ -875,65 +599,50 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#94A3B8',
   },
-  modalOverlay: {
+  modalContainer: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'flex-end',
+    backgroundColor: '#0F172A',
   },
-  modalContent: {
-    backgroundColor: '#1E293B',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    paddingBottom: 40,
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#334155'
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: 20,
-    textAlign: 'center',
+    color: '#FFF'
   },
-  templateOption: {
+  closeModalText: {
+    color: '#3B82F6',
+    fontSize: 16
+  },
+  exerciseOption: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#0F172A',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1.5,
-    borderColor: '#334155',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1E293B'
   },
-  templateOptionIcon: {
-    fontSize: 32,
-    marginRight: 16,
-  },
-  templateOptionInfo: {
-    flex: 1,
-  },
-  templateOptionTitle: {
+  exerciseOptionName: {
+    color: '#FFF',
     fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: 4,
+    fontWeight: '600',
+    marginBottom: 4
   },
-  templateOptionDesc: {
-    fontSize: 13,
+  exerciseOptionDetail: {
     color: '#94A3B8',
-    fontWeight: '500',
+    fontSize: 13
   },
-  modalCancelButton: {
-    backgroundColor: '#334155',
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  modalCancelText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
+  addIcon: {
+    color: '#3B82F6',
+    fontSize: 24,
+    fontWeight: 'bold'
+  }
 });
 
 export default WorkoutPlanEditorScreen;

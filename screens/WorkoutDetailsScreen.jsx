@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -10,52 +10,21 @@ import {
   Alert,
 } from 'react-native';
 
+import { useFocusEffect } from '@react-navigation/native';
+import api from '../services/api';
+
 const WorkoutDetailsScreen = ({ navigation, route }) => {
-  const workout = route?.params?.workout;
+  const [workoutData, setWorkoutData] = useState(route?.params?.workout || null);
+  const [loading, setLoading] = useState(false);
 
-  // Przykładowe dane treningu
-  const workoutData = workout || {
-    id: 1,
-    name: 'Push A',
-    date: '2024-01-12',
-    time: '14:30',
-    duration: '52 min',
-    exercises: [
-      { 
-        id: 1, 
-        name: 'Bench Press', 
-        numSets: 4,
-        sets: [
-          { id: 1, weight: '80', reps: '10' },
-          { id: 2, weight: '80', reps: '9' },
-          { id: 3, weight: '80', reps: '8' },
-          { id: 4, weight: '75', reps: '10' },
-        ]
-      },
-      { 
-        id: 2, 
-        name: 'Incline DB Press', 
-        numSets: 3,
-        sets: [
-          { id: 1, weight: '32', reps: '10' },
-          { id: 2, weight: '32', reps: '9' },
-          { id: 3, weight: '30', reps: '10' },
-        ]
-      },
-      { 
-        id: 3, 
-        name: 'Cable Flyes', 
-        numSets: 3,
-        sets: [
-          { id: 1, weight: '15', reps: '12' },
-          { id: 2, weight: '15', reps: '12' },
-          { id: 3, weight: '15', reps: '10' },
-        ]
-      },
-    ],
-  };
+  // If we navigated here with just an ID (e.g. from deep link or notification), we might need to fetch
+  // but usually we pass the full object. Let's support fetching if missing.
+  // We'll skip complex fetching logic for now unless ID is passed but object isn't.
 
-  const totalSets = workoutData.exercises?.reduce((sum, ex) => sum + (ex.numSets || 0), 0) || 0;
+  // const totalSets = ... derived from workoutData
+  // We need to handle null workoutData safely
+
+  const totalSets = workoutData?.exercises?.reduce((sum, ex) => sum + (ex.numSets || 0), 0) || 0;
   const totalVolume = workoutData.exercises?.reduce((sum, ex) => {
     const exerciseVolume = ex.sets?.reduce((vol, set) => {
       return vol + (parseFloat(set.weight || 0) * parseFloat(set.reps || 0));
@@ -67,7 +36,7 @@ const WorkoutDetailsScreen = ({ navigation, route }) => {
     const date = new Date(dateString);
     const days = ['Niedziela', 'Poniedziałek', 'Wtorek', 'Środa', 'Czwartek', 'Piątek', 'Sobota'];
     const months = ['stycznia', 'lutego', 'marca', 'kwietnia', 'maja', 'czerwca',
-                    'lipca', 'sierpnia', 'września', 'października', 'listopada', 'grudnia'];
+      'lipca', 'sierpnia', 'września', 'października', 'listopada', 'grudnia'];
 
     return `${days[date.getDay()]}, ${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
   };
@@ -85,14 +54,36 @@ const WorkoutDetailsScreen = ({ navigation, route }) => {
         {
           text: 'Usuń',
           style: 'destructive',
-          onPress: () => {
-            console.log('Deleting workout:', workoutData.id);
-            navigation.goBack();
+          onPress: async () => {
+            try {
+              if (workoutData?._id || workoutData?.id) {
+                await api.deleteWorkout(workoutData._id || workoutData.id);
+                navigation.goBack();
+              }
+            } catch (error) {
+              console.error(error);
+              Alert.alert('Błąd', 'Nie udało się usunąć treningu');
+            }
           },
         },
       ]
     );
   };
+
+  if (!workoutData) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+            <Text style={styles.backIcon}>←</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ color: 'white' }}>Ładowanie...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -123,12 +114,12 @@ const WorkoutDetailsScreen = ({ navigation, route }) => {
         {/* Workout Info */}
         <View style={styles.workoutInfoCard}>
           <Text style={styles.workoutName}>{workoutData.name}</Text>
-          <Text style={styles.workoutDate}>{formatDate(workoutData.date)}</Text>
-          <Text style={styles.workoutTime}>Rozpoczęto o {workoutData.time}</Text>
+          <Text style={styles.workoutDate}>{workoutData.date ? formatDate(workoutData.date) : ''}</Text>
+          <Text style={styles.workoutTime}>Rozpoczęto o {workoutData.time || '-'}</Text>
 
           <View style={styles.workoutStats}>
             <View style={styles.workoutStat}>
-              <Text style={styles.workoutStatValue}>{workoutData.duration}</Text>
+              <Text style={styles.workoutStatValue}>{workoutData.duration || '-'}</Text>
               <Text style={styles.workoutStatLabel}>Czas trwania</Text>
             </View>
             <View style={styles.workoutStat}>
@@ -153,31 +144,31 @@ const WorkoutDetailsScreen = ({ navigation, route }) => {
           <Text style={styles.sectionTitle}>ĆWICZENIA</Text>
 
           {workoutData.exercises && workoutData.exercises.map((exercise, index) => (
-            <View key={exercise.id} style={styles.exerciseCard}>
+            <View key={exercise._id ? String(exercise._id) : (exercise.id ? String(exercise.id) : String(index))} style={styles.exerciseCard}>
               <View style={styles.exerciseHeader}>
                 <Text style={styles.exerciseNumber}>{index + 1}</Text>
-                <Text style={styles.exerciseName}>{exercise.name}</Text>
+                <Text style={styles.exerciseName}>{exercise.name || 'Ćwiczenie'}</Text>
               </View>
 
               <View style={styles.setsContainer}>
                 {exercise.sets && exercise.sets.map((set, setIndex) => (
-                  <View key={set.id} style={styles.setRow}>
+                  <View key={set._id ? String(set._id) : (set.id ? String(set.id) : String(setIndex))} style={styles.setRow}>
                     <Text style={styles.setLabel}>Seria {setIndex + 1}</Text>
                     <View style={styles.setValues}>
-                      {set.weight && (
+                      {(set.weight != null && set.weight !== '') && (
                         <Text style={styles.setValue}>
                           {set.weight} kg
                         </Text>
                       )}
-                      {set.weight && set.reps && (
+                      {(set.weight != null && set.weight !== '') && (set.reps != null && set.reps !== '') && (
                         <Text style={styles.setDivider}>×</Text>
                       )}
-                      {set.reps && (
+                      {(set.reps != null && set.reps !== '') && (
                         <Text style={styles.setValue}>
                           {set.reps} rep
                         </Text>
                       )}
-                      {!set.weight && !set.reps && (
+                      {(!set.weight && !set.reps) && (
                         <Text style={styles.setEmpty}>Pominięto</Text>
                       )}
                     </View>
@@ -188,7 +179,7 @@ const WorkoutDetailsScreen = ({ navigation, route }) => {
               {/* Exercise summary */}
               <View style={styles.exerciseSummary}>
                 <Text style={styles.exerciseSummaryText}>
-                  Objętość: {exercise.sets.reduce((sum, set) =>
+                  Objętość: {exercise.sets?.reduce((sum, set) =>
                     sum + (parseFloat(set.weight || 0) * parseFloat(set.reps || 0)), 0
                   ).toFixed(0)} kg
                 </Text>

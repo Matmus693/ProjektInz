@@ -6,18 +6,12 @@ const getApiBaseUrl = () => {
   if (!__DEV__) {
     return 'https://your-production-api.com/api';
   }
-  
-  // For development
-  if (Platform.OS === 'android') {
-    // Android emulator uses 10.0.2.2 to access host machine's localhost
-    return 'http://10.0.2.2:5000/api';
-  } else if (Platform.OS === 'ios') {
-    // iOS simulator can use localhost
-    return 'http://localhost:5000/api';
-  } else {
-    // Web or other platforms
-    return 'http://localhost:5000/api';
-  }
+
+  // Twoje lokalne IP
+  const LOCAL_IP = '192.168.55.104';
+
+  // Dla wszystkich platform w development uÅ¼ywamy lokalnego IP
+  return `http://${LOCAL_IP}:5000/api`;
 };
 
 const API_BASE_URL = getApiBaseUrl();
@@ -179,6 +173,10 @@ class ApiService {
     return this.request('/workout-plans');
   }
 
+  async getWorkoutTemplates() {
+    return this.request('/workout-plans/templates');
+  }
+
   async getWorkoutPlan(id) {
     return this.request(`/workout-plans/${id}`);
   }
@@ -229,8 +227,61 @@ class ApiService {
     });
   }
 
+  async deleteWeight(weightId) {
+    return this.request(`/progress/weight/${weightId}`, {
+      method: 'DELETE',
+    });
+  }
+
   async getStats() {
     return this.request('/progress/stats');
+  }
+
+  // Exercises methods
+  async getExercises() {
+    return this.request('/exercises');
+  }
+
+  // Insight methods
+  async getInsight(userId) {
+    return this.request(`/insights/suggest?userId=${userId}`);
+  }
+
+  // Seeding methods
+  async seedWorkoutPlans(userId) {
+    return this.request('/workout-plans/seed', {
+      method: 'POST',
+      body: JSON.stringify({ userId }),
+    });
+  }
+
+  async seedExercises() {
+    return this.request('/exercises/seed', {
+      method: 'POST',
+    });
+  }
+
+  // Workout Generator methods
+  async generateWorkoutPlan(targetMuscles, trainingType = 'CUSTOM', maxExercises = 6) {
+    return this.request('/workout-generator/generate', {
+      method: 'POST',
+      body: JSON.stringify({ targetMuscles, trainingType, maxExercises }),
+    });
+  }
+
+  async validateWorkout(exercises) {
+    return this.request('/workout-generator/validate', {
+      method: 'POST',
+      body: JSON.stringify({ exercises }),
+    });
+  }
+
+  async getMuscleGroups() {
+    return this.request('/workout-generator/muscle-groups');
+  }
+
+  async getTrainingTypes() {
+    return this.request('/workout-generator/training-types');
   }
 }
 

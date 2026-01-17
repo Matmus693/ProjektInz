@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,323 +8,55 @@ import {
   StatusBar,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import api from '../services/api';
+
+const TEMP_USER_ID = '65a000000000000000000001';
 
 const WorkoutPlansScreen = ({ navigation }) => {
-  // Przykładowe dane planów treningowych
-  const workoutPlans = [
-    {
-      id: 1,
-      name: 'Push',
-      type: 'Szablon',
-      exercises: 6,
-      description: 'Klatka, ramiona, triceps',
-      isActive: true,
-      exercisesList: [
-        {
-          id: 1,
-          name: 'Bench Press',
-          numSets: 4,
-          sets: [
-            { id: 1, weight: '80', reps: '10' },
-            { id: 2, weight: '80', reps: '9' },
-            { id: 3, weight: '80', reps: '8' },
-            { id: 4, weight: '75', reps: '10' },
-          ]
-        },
-        {
-          id: 2,
-          name: 'Incline DB Press',
-          numSets: 3,
-          sets: [
-            { id: 1, weight: '32', reps: '10' },
-            { id: 2, weight: '32', reps: '9' },
-            { id: 3, weight: '30', reps: '10' },
-          ]
-        },
-        {
-          id: 3,
-          name: 'Cable Flyes',
-          numSets: 3,
-          sets: [
-            { id: 1, weight: '15', reps: '12' },
-            { id: 2, weight: '15', reps: '12' },
-            { id: 3, weight: '15', reps: '10' },
-          ]
-        },
-        {
-          id: 4,
-          name: 'Overhead Press',
-          numSets: 4,
-          sets: [
-            { id: 1, weight: '50', reps: '8' },
-            { id: 2, weight: '50', reps: '8' },
-            { id: 3, weight: '50', reps: '7' },
-            { id: 4, weight: '45', reps: '8' },
-          ]
-        },
-        {
-          id: 5,
-          name: 'Lateral Raises',
-          numSets: 3,
-          sets: [
-            { id: 1, weight: '12', reps: '12' },
-            { id: 2, weight: '12', reps: '12' },
-            { id: 3, weight: '12', reps: '10' },
-          ]
-        },
-        {
-          id: 6,
-          name: 'Tricep Pushdown',
-          numSets: 3,
-          sets: [
-            { id: 1, weight: '25', reps: '12' },
-            { id: 2, weight: '25', reps: '12' },
-            { id: 3, weight: '25', reps: '10' },
-          ]
-        },
-      ],
-    },
-    {
-      id: 2,
-      name: 'Pull',
-      type: 'Szablon',
-      exercises: 6,
-      description: 'Plecy, biceps, martwy ciąg',
-      isActive: false,
-      exercisesList: [
-        {
-          id: 1,
-          name: 'Deadlift',
-          numSets: 4,
-          sets: [
-            { id: 1, weight: '120', reps: '6' },
-            { id: 2, weight: '120', reps: '6' },
-            { id: 3, weight: '120', reps: '5' },
-            { id: 4, weight: '110', reps: '6' },
-          ]
-        },
-        {
-          id: 2,
-          name: 'Pull-ups',
-          numSets: 4,
-          sets: [
-            { id: 1, weight: '0', reps: '8' },
-            { id: 2, weight: '0', reps: '8' },
-            { id: 3, weight: '0', reps: '7' },
-            { id: 4, weight: '0', reps: '6' },
-          ]
-        },
-        {
-          id: 3,
-          name: 'Barbell Row',
-          numSets: 4,
-          sets: [
-            { id: 1, weight: '70', reps: '8' },
-            { id: 2, weight: '70', reps: '8' },
-            { id: 3, weight: '70', reps: '7' },
-            { id: 4, weight: '65', reps: '8' },
-          ]
-        },
-        {
-          id: 4,
-          name: 'Face Pulls',
-          numSets: 3,
-          sets: [
-            { id: 1, weight: '20', reps: '15' },
-            { id: 2, weight: '20', reps: '15' },
-            { id: 3, weight: '20', reps: '12' },
-          ]
-        },
-        {
-          id: 5,
-          name: 'Barbell Curl',
-          numSets: 3,
-          sets: [
-            { id: 1, weight: '30', reps: '10' },
-            { id: 2, weight: '30', reps: '9' },
-            { id: 3, weight: '28', reps: '10' },
-          ]
-        },
-        {
-          id: 6,
-          name: 'Hammer Curl',
-          numSets: 3,
-          sets: [
-            { id: 1, weight: '16', reps: '12' },
-            { id: 2, weight: '16', reps: '12' },
-            { id: 3, weight: '16', reps: '10' },
-          ]
-        },
-      ],
-    },
-    {
-      id: 3,
-      name: 'Legs',
-      type: 'Szablon',
-      exercises: 6,
-      description: 'Nogi, pośladki, łydki',
-      isActive: false,
-      exercisesList: [
-        {
-          id: 1,
-          name: 'Squat',
-          numSets: 4,
-          sets: [
-            { id: 1, weight: '100', reps: '8' },
-            { id: 2, weight: '100', reps: '8' },
-            { id: 3, weight: '100', reps: '7' },
-            { id: 4, weight: '95', reps: '8' },
-          ]
-        },
-        {
-          id: 2,
-          name: 'Romanian Deadlift',
-          numSets: 4,
-          sets: [
-            { id: 1, weight: '80', reps: '10' },
-            { id: 2, weight: '80', reps: '10' },
-            { id: 3, weight: '80', reps: '9' },
-            { id: 4, weight: '75', reps: '10' },
-          ]
-        },
-        {
-          id: 3,
-          name: 'Leg Press',
-          numSets: 3,
-          sets: [
-            { id: 1, weight: '150', reps: '12' },
-            { id: 2, weight: '150', reps: '12' },
-            { id: 3, weight: '150', reps: '10' },
-          ]
-        },
-        {
-          id: 4,
-          name: 'Leg Curl',
-          numSets: 3,
-          sets: [
-            { id: 1, weight: '40', reps: '12' },
-            { id: 2, weight: '40', reps: '12' },
-            { id: 3, weight: '40', reps: '10' },
-          ]
-        },
-        {
-          id: 5,
-          name: 'Leg Extension',
-          numSets: 3,
-          sets: [
-            { id: 1, weight: '50', reps: '12' },
-            { id: 2, weight: '50', reps: '12' },
-            { id: 3, weight: '50', reps: '10' },
-          ]
-        },
-        {
-          id: 6,
-          name: 'Calf Raises',
-          numSets: 4,
-          sets: [
-            { id: 1, weight: '60', reps: '15' },
-            { id: 2, weight: '60', reps: '15' },
-            { id: 3, weight: '60', reps: '12' },
-            { id: 4, weight: '60', reps: '12' },
-          ]
-        },
-      ],
-    },
-    {
-      id: 4,
-      name: 'Full Body Workout',
-      type: 'Własny',
-      exercises: 8,
-      description: 'Kompleksowy trening całego ciała',
-      isActive: false,
-      exercisesList: [
-        {
-          id: 1,
-          name: 'Squat',
-          numSets: 4,
-          sets: [
-            { id: 1, weight: '100', reps: '8' },
-            { id: 2, weight: '100', reps: '8' },
-            { id: 3, weight: '100', reps: '7' },
-            { id: 4, weight: '95', reps: '8' },
-          ]
-        },
-        {
-          id: 2,
-          name: 'Bench Press',
-          numSets: 4,
-          sets: [
-            { id: 1, weight: '80', reps: '8' },
-            { id: 2, weight: '80', reps: '8' },
-            { id: 3, weight: '80', reps: '7' },
-            { id: 4, weight: '75', reps: '8' },
-          ]
-        },
-        {
-          id: 3,
-          name: 'Barbell Row',
-          numSets: 4,
-          sets: [
-            { id: 1, weight: '70', reps: '8' },
-            { id: 2, weight: '70', reps: '8' },
-            { id: 3, weight: '70', reps: '7' },
-            { id: 4, weight: '65', reps: '8' },
-          ]
-        },
-        {
-          id: 4,
-          name: 'Overhead Press',
-          numSets: 3,
-          sets: [
-            { id: 1, weight: '50', reps: '10' },
-            { id: 2, weight: '50', reps: '9' },
-            { id: 3, weight: '45', reps: '10' },
-          ]
-        },
-        {
-          id: 5,
-          name: 'Romanian Deadlift',
-          numSets: 3,
-          sets: [
-            { id: 1, weight: '80', reps: '10' },
-            { id: 2, weight: '80', reps: '9' },
-            { id: 3, weight: '75', reps: '10' },
-          ]
-        },
-        {
-          id: 6,
-          name: 'Pull-ups',
-          numSets: 3,
-          sets: [
-            { id: 1, weight: '0', reps: '8' },
-            { id: 2, weight: '0', reps: '7' },
-            { id: 3, weight: '0', reps: '6' },
-          ]
-        },
-        {
-          id: 7,
-          name: 'Dips',
-          numSets: 3,
-          sets: [
-            { id: 1, weight: '0', reps: '10' },
-            { id: 2, weight: '0', reps: '9' },
-            { id: 3, weight: '0', reps: '8' },
-          ]
-        },
-        {
-          id: 8,
-          name: 'Plank',
-          numSets: 3,
-          sets: [
-            { id: 1, weight: '0', reps: '60' },
-            { id: 2, weight: '0', reps: '60' },
-            { id: 3, weight: '0', reps: '45' },
-          ]
-        },
-      ],
-    },
-  ];
+  const [workoutPlans, setWorkoutPlans] = useState([]);
+  const [suggestion, setSuggestion] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchPlansAndInsights = async () => {
+    try {
+      setLoading(true);
+
+      // 1. Fetch Plans
+      try {
+        const data = await api.getWorkoutPlans();
+        if (data) {
+          setWorkoutPlans(data);
+        }
+      } catch (err) {
+        console.log('Error fetching plans:', err);
+      }
+
+      // 2. Fetch Insights
+      try {
+        const insightData = await api.getInsight(TEMP_USER_ID);
+        if (insightData) {
+          setSuggestion(insightData);
+        }
+      } catch (err) {
+        console.log('Error fetching insights:', err);
+      }
+
+    } catch (error) {
+      console.error('General fetch error:', error);
+      Alert.alert('Błąd', 'Nie udało się pobrać danych z serwera');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchPlansAndInsights();
+    }, [])
+  );
 
   const handleDeletePlan = (planId, planName) => {
     Alert.alert(
@@ -335,31 +67,26 @@ const WorkoutPlansScreen = ({ navigation }) => {
         {
           text: 'Usuń',
           style: 'destructive',
-          onPress: () => {
-            console.log('Deleting plan:', planId);
-            // Tutaj logika usunięcia
+          onPress: async () => {
+            try {
+              await api.deleteWorkoutPlan(planId);
+              fetchPlansAndInsights();
+            } catch (err) {
+              console.error(err);
+            }
           },
         },
       ]
     );
   };
 
-  const handleSetActivePlan = (planId, planName) => {
-    Alert.alert(
-      'Ustaw jako aktywny',
-      `Czy chcesz ustawić plan "${planName}" jako aktywny?`,
-      [
-        { text: 'Anuluj', style: 'cancel' },
-        {
-          text: 'Ustaw',
-          onPress: () => {
-            console.log('Setting active plan:', planId);
-            // Tutaj logika ustawienia aktywnego planu
-          },
-        },
-      ]
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.container, styles.center]}>
+        <ActivityIndicator size="large" color="#3B82F6" />
+      </SafeAreaView>
     );
-  };
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -368,12 +95,20 @@ const WorkoutPlansScreen = ({ navigation }) => {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Plany Treningowe</Text>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => navigation.navigate('WorkoutPlanEditor')}
-        >
-          <Text style={styles.addButtonText}>+</Text>
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity
+            style={styles.generateButton}
+            onPress={() => navigation.navigate('WorkoutGenerator')}
+          >
+            <Text style={styles.generateButtonText}>🤖 AI</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => navigation.navigate('WorkoutPlanEditor')}
+          >
+            <Text style={styles.addButtonText}>+</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
@@ -381,37 +116,33 @@ const WorkoutPlansScreen = ({ navigation }) => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Active Plan */}
-        {workoutPlans.some((plan) => plan.isActive) && (
+        {/* Insights Suggestion */}
+        {suggestion && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>AKTYWNY PLAN</Text>
-            {workoutPlans
-              .filter((plan) => plan.isActive)
-              .map((plan) => (
+            <Text style={styles.sectionTitle}>SUGEROWANY TRENING (INSIGHTS)</Text>
+            <View style={styles.suggestionCard}>
+              <Text style={styles.suggestionTitle}>
+                {suggestion.type}
+              </Text>
+              <Text style={styles.suggestionReason}>
+                {suggestion.reason}
+              </Text>
+              {suggestion.suggestedPlan ? (
                 <TouchableOpacity
-                  key={plan.id}
-                  style={styles.activePlanCard}
-                  onPress={() =>
-                    navigation.navigate('WorkoutPlanDetails', { plan })
-                  }
+                  style={styles.suggestionAction}
+                  onPress={() => navigation.navigate('WorkoutPlanDetails', { plan: suggestion.suggestedPlan })}
                 >
-                  <View style={styles.activeBadge}>
-                    <Text style={styles.activeBadgeText}>AKTYWNY</Text>
-                  </View>
-                  <Text style={styles.planName}>{plan.name}</Text>
-                  <Text style={styles.planDescription}>{plan.description}</Text>
-                  <View style={styles.planStats}>
-                    <View style={styles.planStat}>
-                      <Text style={styles.planStatValue}>{plan.exercises}</Text>
-                      <Text style={styles.planStatLabel}>Ćwiczeń</Text>
-                    </View>
-                    <View style={styles.planStat}>
-                      <Text style={styles.planStatValue}>{plan.type}</Text>
-                      <Text style={styles.planStatLabel}>Typ</Text>
-                    </View>
-                  </View>
+                  <Text style={styles.suggestionActionText}>Zobacz Plan: {suggestion.suggestedPlan.name}</Text>
                 </TouchableOpacity>
-              ))}
+              ) : (
+                <TouchableOpacity
+                  style={styles.suggestionAction}
+                  onPress={() => navigation.navigate('WorkoutPlanEditor', { type: suggestion.type })}
+                >
+                  <Text style={styles.suggestionActionText}>Stwórz Plan {suggestion.type}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         )}
 
@@ -419,7 +150,7 @@ const WorkoutPlansScreen = ({ navigation }) => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>WSZYSTKIE PLANY</Text>
           {workoutPlans.map((plan) => (
-            <View key={plan.id} style={styles.planCard}>
+            <View key={plan._id} style={styles.planCard}>
               <TouchableOpacity
                 style={styles.planCardContent}
                 onPress={() =>
@@ -433,16 +164,12 @@ const WorkoutPlansScreen = ({ navigation }) => {
                       {plan.description}
                     </Text>
                   </View>
-                  {plan.isActive && (
-                    <View style={styles.activeIndicator}>
-                      <Text style={styles.activeIndicatorDot}>●</Text>
-                    </View>
-                  )}
+
                 </View>
 
                 <View style={styles.planCardStats}>
                   <Text style={styles.planCardStat}>
-                    {plan.exercises} ćwiczeń
+                    {plan.exercises?.length || 0} ćwiczeń
                   </Text>
                   <Text style={styles.planCardDivider}>•</Text>
                   <Text style={styles.planCardStat}>{plan.type}</Text>
@@ -450,14 +177,7 @@ const WorkoutPlansScreen = ({ navigation }) => {
               </TouchableOpacity>
 
               <View style={styles.planActions}>
-                {!plan.isActive && (
-                  <TouchableOpacity
-                    style={styles.actionButton}
-                    onPress={() => handleSetActivePlan(plan.id, plan.name)}
-                  >
-                    <Text style={styles.actionButtonText}>Ustaw aktywny</Text>
-                  </TouchableOpacity>
-                )}
+
                 <TouchableOpacity
                   style={styles.actionButton}
                   onPress={() =>
@@ -468,7 +188,7 @@ const WorkoutPlansScreen = ({ navigation }) => {
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.actionButton, styles.deleteButton]}
-                  onPress={() => handleDeletePlan(plan.id, plan.name)}
+                  onPress={() => handleDeletePlan(plan._id, plan.name)}
                 >
                   <Text style={[styles.actionButtonText, styles.deleteText]}>
                     Usuń
@@ -484,7 +204,7 @@ const WorkoutPlansScreen = ({ navigation }) => {
             <Text style={styles.emptyStateIcon}>📋</Text>
             <Text style={styles.emptyStateText}>Brak planów treningowych</Text>
             <Text style={styles.emptyStateSubtext}>
-              Dodaj nowy plan lub użyj szablonu
+              Dodaj nowy plan lub migruj szablony
             </Text>
           </View>
         )}
@@ -498,6 +218,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0F172A',
   },
+  center: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -510,6 +234,23 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  generateButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#8B5CF6',
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  generateButtonText: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
   addButton: {
     width: 40,
@@ -542,29 +283,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     letterSpacing: 0.5,
   },
-  activePlanCard: {
-    backgroundColor: '#1E293B',
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 2,
-    borderColor: '#3B82F6',
-    position: 'relative',
-  },
-  activeBadge: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    backgroundColor: '#3B82F6',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  activeBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    letterSpacing: 0.5,
-  },
+
   planName: {
     fontSize: 22,
     fontWeight: '700',
@@ -627,13 +346,7 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
     fontWeight: '500',
   },
-  activeIndicator: {
-    marginLeft: 12,
-  },
-  activeIndicatorDot: {
-    fontSize: 16,
-    color: '#3B82F6',
-  },
+
   planCardStats: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -690,6 +403,35 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#94A3B8',
   },
+  suggestionCard: {
+    backgroundColor: '#1E293B', // Dark card
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#10B981', // Emerald green border for positive suggestion
+    marginBottom: 10
+  },
+  suggestionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#10B981',
+    marginBottom: 8
+  },
+  suggestionReason: {
+    fontSize: 14,
+    color: '#E2E8F0',
+    marginBottom: 16
+  },
+  suggestionAction: {
+    backgroundColor: '#10B981',
+    borderRadius: 8,
+    padding: 10,
+    alignItems: 'center'
+  },
+  suggestionActionText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold'
+  }
 });
 
 export default WorkoutPlansScreen;

@@ -46,6 +46,12 @@ const workoutPlanSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  isGenerated: {
+    type: Boolean,
+    default: false,
+    // true = algorithm-generated (temporary, can be auto-deleted)
+    // false = user-created (permanent, manual deletion only)
+  },
   exercises: [exerciseSchema],
 }, {
   timestamps: true,

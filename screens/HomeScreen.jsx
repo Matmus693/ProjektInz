@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,62 +7,74 @@ import {
   ScrollView,
   StatusBar,
   TouchableOpacity,
+  ActivityIndicator
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import api from '../services/api';
+
+const TEMP_USER_ID = '65a000000000000000000001';
 
 const HomeScreen = ({ navigation }) => {
-  // Przykładowe dane - później można podpiąć API/state
-  const monthlyStats = {
-    workouts: 12,
-    duration: '8h 45m',
-    totalWeight: 24500,
-    sets: 156,
+  const [loading, setLoading] = useState(true);
+  const [monthlyStats, setMonthlyStats] = useState({
+    totalWorkouts: 0,
+    avgWorkoutDuration: 0,
+    totalVolume: 0,
+    totalSets: 0
+  });
+  const [lastWorkout, setLastWorkout] = useState(null);
+  const [insight, setInsight] = useState(null);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+
+      // 1. Fetch Monthly Stats
+      const stats = await api.getStats();
+      if (stats) setMonthlyStats(stats);
+
+      // 2. Fetch Last Workout
+      const workouts = await api.getWorkouts();
+      if (workouts && workouts.length > 0) {
+        setLastWorkout(workouts[0]); // Sorted by date desc in backend
+      } else {
+        setLastWorkout(null);
+      }
+
+      // 3. Fetch Insight
+      const insightData = await api.getInsight(TEMP_USER_ID);
+      if (insightData) {
+        setInsight({
+          message: insightData.reason || `Sugerowany trening: ${insightData.type}`,
+          type: 'suggestion'
+        });
+      }
+
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const lastWorkout = {
-    id: 1,
-    name: 'Push A',
-    date: '2024-01-12',
-    time: '14:30',
-    duration: '52 min',
-    exercises: [
-      {
-        id: 1,
-        name: 'Bench Press',
-        numSets: 4,
-        sets: [
-          { id: 1, weight: '80', reps: '10' },
-          { id: 2, weight: '80', reps: '9' },
-          { id: 3, weight: '80', reps: '8' },
-          { id: 4, weight: '75', reps: '10' },
-        ]
-      },
-      {
-        id: 2,
-        name: 'Incline DB Press',
-        numSets: 3,
-        sets: [
-          { id: 1, weight: '32', reps: '10' },
-          { id: 2, weight: '32', reps: '9' },
-          { id: 3, weight: '30', reps: '10' },
-        ]
-      },
-      {
-        id: 3,
-        name: 'Cable Flyes',
-        numSets: 3,
-        sets: [
-          { id: 1, weight: '15', reps: '12' },
-          { id: 2, weight: '15', reps: '12' },
-          { id: 3, weight: '15', reps: '10' },
-        ]
-      },
-    ],
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+    }, [])
+  );
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '';
+    return new Date(dateStr).toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' });
   };
 
-  const aiInsight = {
-    message: 'Zwiększamy objętość pleców, bo ostatnie 3 treningi były wykonane bez spadku wydajności',
-    type: 'progress', // progress, warning, suggestion
-  };
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.container, styles.center]}>
+        <ActivityIndicator size="large" color="#3B82F6" />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -75,39 +87,41 @@ const HomeScreen = ({ navigation }) => {
         <View style={styles.header}>
           <View>
             <Text style={styles.greeting}>Witaj!</Text>
-            <Text style={styles.date}>Poniedziałek, 12 Stycznia</Text>
+            <Text style={styles.date}>{new Date().toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' })}</Text>
           </View>
         </View>
 
         {/* AI Insight */}
-        <View style={styles.insightCard}>
-          <View style={styles.insightHeader}>
-            <Text style={styles.insightIcon}>💡</Text>
-            <Text style={styles.insightTitle}>Insight</Text>
+        {insight && (
+          <View style={styles.insightCard}>
+            <View style={styles.insightHeader}>
+              <Text style={styles.insightIcon}>💡</Text>
+              <Text style={styles.insightTitle}>Insight</Text>
+            </View>
+            <Text style={styles.insightMessage}>{insight.message}</Text>
           </View>
-          <Text style={styles.insightMessage}>{aiInsight.message}</Text>
-        </View>
+        )}
 
         {/* Monthly Summary */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>MIESIĘCZNE PODSUMOWANIE</Text>
           <View style={styles.statsGrid}>
             <View style={styles.statCard}>
-              <Text style={styles.statValue}>{monthlyStats.workouts}</Text>
+              <Text style={styles.statValue}>{monthlyStats.totalWorkouts || 0}</Text>
               <Text style={styles.statLabel}>Treningów</Text>
             </View>
             <View style={styles.statCard}>
-              <Text style={styles.statValue}>{monthlyStats.duration}</Text>
-              <Text style={styles.statLabel}>Czas</Text>
+              <Text style={styles.statValue}>{monthlyStats.avgWorkoutDuration || 0}m</Text>
+              <Text style={styles.statLabel}>Śr. Czas</Text>
             </View>
             <View style={styles.statCard}>
               <Text style={styles.statValue}>
-                {(monthlyStats.totalWeight / 1000).toFixed(1)}t
+                {((monthlyStats.totalVolume || 0) / 1000).toFixed(1)}t
               </Text>
               <Text style={styles.statLabel}>Podniesione</Text>
             </View>
             <View style={styles.statCard}>
-              <Text style={styles.statValue}>{monthlyStats.sets}</Text>
+              <Text style={styles.statValue}>{monthlyStats.totalSets || 0}</Text>
               <Text style={styles.statLabel}>Setów</Text>
             </View>
           </View>
@@ -116,41 +130,69 @@ const HomeScreen = ({ navigation }) => {
         {/* Last Workout */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>OSTATNI TRENING</Text>
-          <View style={styles.workoutCard}>
-            <View style={styles.workoutHeader}>
-              <View>
-                <Text style={styles.workoutName}>{lastWorkout.name}</Text>
-                <Text style={styles.workoutDate}>{lastWorkout.date}</Text>
+          {lastWorkout ? (
+            <View style={styles.workoutCard}>
+              <View style={styles.workoutHeader}>
+                <View>
+                  <Text style={styles.workoutName}>{lastWorkout.name}</Text>
+                  <Text style={styles.workoutDate}>
+                    {new Date(lastWorkout.date).toLocaleDateString('pl-PL', {
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric'
+                    })}
+                    ,{' '}
+                    {lastWorkout.time || new Date(lastWorkout.date).toLocaleTimeString('pl-PL', {
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </Text>
+                </View>
+                <View style={styles.workoutDuration}>
+                  <Text style={styles.durationText}>{lastWorkout.duration || '-'}</Text>
+                </View>
               </View>
-              <View style={styles.workoutDuration}>
-                <Text style={styles.durationText}>{lastWorkout.duration}</Text>
-              </View>
-            </View>
 
-            <View style={styles.exercisesList}>
-              {lastWorkout.exercises.map((exercise, index) => {
-                // Oblicz średnią wagę i reps z setów
-                const avgWeight = exercise.sets.reduce((sum, set) => sum + parseFloat(set.weight || 0), 0) / exercise.sets.length;
-                const avgReps = exercise.sets.reduce((sum, set) => sum + parseFloat(set.reps || 0), 0) / exercise.sets.length;
+              <View style={styles.exercisesList}>
+                {(lastWorkout.exercises || []).slice(0, 3).map((exercise, index) => {
+                  // Calculate avg stats
+                  const validSets = exercise.sets.filter(s => s.weight && s.reps);
+                  const avgWeight = validSets.length > 0
+                    ? validSets.reduce((sum, set) => sum + parseFloat(set.weight || 0), 0) / validSets.length
+                    : 0;
+                  const avgReps = validSets.length > 0
+                    ? validSets.reduce((sum, set) => sum + parseFloat(set.reps || 0), 0) / validSets.length
+                    : 0;
 
-                return (
-                  <View key={index} style={styles.exerciseItem}>
-                    <View style={styles.exerciseInfo}>
-                      <Text style={styles.exerciseName}>{exercise.name}</Text>
-                      <Text style={styles.exerciseSets}>{exercise.numSets} serie</Text>
+                  return (
+                    <View key={index} style={styles.exerciseItem}>
+                      <View style={styles.exerciseInfo}>
+                        <Text style={styles.exerciseName}>{exercise.name}</Text>
+                        <Text style={styles.exerciseSets}>{exercise.numSets} serie</Text>
+                      </View>
+                      <Text style={styles.exerciseWeight}>
+                        ~{avgWeight.toFixed(0)}kg × {avgReps.toFixed(0)}
+                      </Text>
                     </View>
-                    <Text style={styles.exerciseWeight}>
-                      ~{avgWeight.toFixed(0)}kg × {avgReps.toFixed(0)}
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
+                  );
+                })}
+                {lastWorkout.exercises.length > 3 && (
+                  <Text style={{ color: '#94A3B8', marginTop: 5, fontSize: 12 }}>+ {lastWorkout.exercises.length - 3} więcej...</Text>
+                )}
+              </View>
 
-            <TouchableOpacity style={styles.viewDetailsButton} onPress={() => navigation.navigate('WorkoutDetails', { workout: lastWorkout })}>
-              <Text style={styles.viewDetailsText}>Zobacz szczegóły</Text>
-            </TouchableOpacity>
-          </View>
+              {/* Since we don't have WorkoutDetails screen code in context, I'll assume it exists or disable the button action if not needed yet. 
+                    The plan didn't explicitily mention creating details screen, but user workflow might rely on it.
+                    I'll keep the navigation call. */}
+              <TouchableOpacity style={styles.viewDetailsButton} onPress={() => navigation.navigate('WorkoutDetails', { workout: lastWorkout })}>
+                <Text style={styles.viewDetailsText}>Zobacz szczegóły</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={[styles.workoutCard, { alignItems: 'center', padding: 30 }]}>
+              <Text style={{ color: '#94A3B8' }}>Brak historii treningów</Text>
+            </View>
+          )}
         </View>
 
         {/* Start Workout Button */}
@@ -162,7 +204,7 @@ const HomeScreen = ({ navigation }) => {
           <Text style={styles.startWorkoutText}>ROZPOCZNIJ TRENING</Text>
         </TouchableOpacity>
       </ScrollView>
-    </SafeAreaView>
+    </SafeAreaView >
   );
 };
 
@@ -170,6 +212,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0F172A',
+  },
+  center: {
+    justifyContent: 'center',
+    alignItems: 'center'
   },
   scrollContent: {
     paddingHorizontal: 20,

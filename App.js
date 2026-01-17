@@ -8,6 +8,7 @@ import WorkoutEditorScreen from './screens/WorkoutEditorScreen';
 import WorkoutPlanEditorScreen from './screens/WorkoutPlanEditorScreen';
 import WorkoutPlanDetailsScreen from './screens/WorkoutPlanDetailsScreen';
 import WorkoutDetailsScreen from './screens/WorkoutDetailsScreen';
+import WorkoutGeneratorScreen from './screens/WorkoutGeneratorScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -28,6 +29,7 @@ export default function App() {
         <Stack.Screen name="WorkoutPlanEditor" component={WorkoutPlanEditorScreen} />
         <Stack.Screen name="WorkoutPlanDetails" component={WorkoutPlanDetailsScreen} />
         <Stack.Screen name="WorkoutDetails" component={WorkoutDetailsScreen} />
+        <Stack.Screen name="WorkoutGenerator" component={WorkoutGeneratorScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

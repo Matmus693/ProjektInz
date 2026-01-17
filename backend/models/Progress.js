@@ -9,6 +9,10 @@ const progressSchema = new mongoose.Schema({
   weight: [{
     date: String,
     weight: Number,
+    timestamp: {
+      type: Date,
+      default: Date.now
+    }
   }],
   measurements: {
     chest: Number,

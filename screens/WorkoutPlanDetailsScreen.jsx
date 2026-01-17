@@ -12,71 +12,9 @@ import {
 const WorkoutPlanDetailsScreen = ({ navigation, route }) => {
   const plan = route?.params?.plan;
 
-  // Przykładowe dane ćwiczeń w planie
-  const planExercises = plan?.exercisesList || [
-    {
-      id: 1,
-      name: 'Bench Press',
-      numSets: 4,
-      sets: [
-        { id: 1, weight: '80', reps: '10' },
-        { id: 2, weight: '80', reps: '9' },
-        { id: 3, weight: '80', reps: '8' },
-        { id: 4, weight: '75', reps: '10' },
-      ]
-    },
-    {
-      id: 2,
-      name: 'Incline DB Press',
-      numSets: 3,
-      sets: [
-        { id: 1, weight: '32', reps: '10' },
-        { id: 2, weight: '32', reps: '9' },
-        { id: 3, weight: '30', reps: '10' },
-      ]
-    },
-    {
-      id: 3,
-      name: 'Cable Flyes',
-      numSets: 3,
-      sets: [
-        { id: 1, weight: '15', reps: '12' },
-        { id: 2, weight: '15', reps: '12' },
-        { id: 3, weight: '15', reps: '10' },
-      ]
-    },
-    {
-      id: 4,
-      name: 'Overhead Press',
-      numSets: 4,
-      sets: [
-        { id: 1, weight: '50', reps: '8' },
-        { id: 2, weight: '50', reps: '8' },
-        { id: 3, weight: '50', reps: '7' },
-        { id: 4, weight: '45', reps: '8' },
-      ]
-    },
-    {
-      id: 5,
-      name: 'Lateral Raises',
-      numSets: 3,
-      sets: [
-        { id: 1, weight: '12', reps: '12' },
-        { id: 2, weight: '12', reps: '12' },
-        { id: 3, weight: '12', reps: '10' },
-      ]
-    },
-    {
-      id: 6,
-      name: 'Tricep Pushdown',
-      numSets: 3,
-      sets: [
-        { id: 1, weight: '25', reps: '12' },
-        { id: 2, weight: '25', reps: '12' },
-        { id: 3, weight: '25', reps: '10' },
-      ]
-    },
-  ];
+  // Backend returns 'exercises', but frontend might have used 'exercisesList' in some places.
+  // We should unify. Let's look for 'exercises' first.
+  const planExercises = plan?.exercises || [];
 
   const totalSets = planExercises.reduce((sum, ex) => sum + (ex.numSets || 0), 0);
 
