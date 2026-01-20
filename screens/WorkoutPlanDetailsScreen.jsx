@@ -12,8 +12,6 @@ import {
 const WorkoutPlanDetailsScreen = ({ navigation, route }) => {
   const plan = route?.params?.plan;
 
-  // Backend returns 'exercises', but frontend might have used 'exercisesList' in some places.
-  // We should unify. Let's look for 'exercises' first.
   const planExercises = plan?.exercises || [];
 
   const totalSets = planExercises.reduce((sum, ex) => sum + (ex.numSets || 0), 0);

@@ -5,7 +5,7 @@ const workoutGenerator = require('../services/workoutGenerator');
 
 /**
  * POST /api/workout-generator/generate
- * Generate an optimal workout plan based on target muscles
+ * Generuje optymalny plan treningowy na podstawie docelowych mięśni
  */
 router.post('/generate', auth, async (req, res) => {
     try {
@@ -39,7 +39,7 @@ router.post('/generate', auth, async (req, res) => {
 
 /**
  * POST /api/workout-generator/validate
- * Validate a set of exercises for safety and balance
+ * Waliduje zestaw ćwiczeń pod kątem bezpieczeństwa i balansu
  */
 router.post('/validate', auth, async (req, res) => {
     try {
@@ -68,7 +68,7 @@ router.post('/validate', auth, async (req, res) => {
 
 /**
  * GET /api/workout-generator/muscle-groups
- * Get available muscle groups for targeting
+ * Pobiera dostępne grupy mięśniowe
  */
 router.get('/muscle-groups', auth, (req, res) => {
     const muscleGroups = {
@@ -85,7 +85,7 @@ router.get('/muscle-groups', auth, (req, res) => {
 
 /**
  * GET /api/workout-generator/training-types
- * Get available training type presets
+ * Pobiera dostępne typy treningów
  */
 router.get('/training-types', auth, (req, res) => {
     res.json(workoutGenerator.TRAINING_TYPES);

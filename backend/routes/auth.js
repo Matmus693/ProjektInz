@@ -4,12 +4,12 @@ const User = require('../models/User');
 const WorkoutPlan = require('../models/WorkoutPlan');
 const router = express.Router();
 
-// Generate JWT Token
+// Generuj Token JWT
 const generateToken = (userId) => {
   return jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: '30d' });
 };
 
-// Default workout plans template
+// Szablon domyślnych planów treningowych
 const createDefaultPlans = async (userId) => {
   const defaultPlans = [
     {
@@ -63,12 +63,12 @@ const createDefaultPlans = async (userId) => {
   await WorkoutPlan.insertMany(plansToInsert);
 };
 
-// Register
+// Rejestracja
 router.post('/register', async (req, res) => {
   try {
     const { username, email, password } = req.body;
 
-    // Validation
+    // Walidacja danych
     if (!username || !email || !password) {
       return res.status(400).json({ message: 'Please provide all required fields' });
     }
@@ -77,7 +77,7 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ message: 'Password must be at least 6 characters' });
     }
 
-    // Check if user exists
+    // Sprawdź czy użytkownik już istnieje
     const existingUser = await User.findOne({
       $or: [{ email }, { username }]
     });
@@ -86,19 +86,19 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ message: 'User already exists with this email or username' });
     }
 
-    // Create user
+    // Utwórz użytkownika
     const user = new User({ username, email, password });
     await user.save();
 
-    // Create default workout plans for the new user
+    // Utwórz domyślne plany treningowe dla nowego użytkownika
     try {
       await createDefaultPlans(user._id);
     } catch (planError) {
       console.error('Error creating default plans:', planError);
-      // Don't fail registration if plan creation fails
+      // Nie przerywaj rejestracji jeśli tworzenie planów się nie uda
     }
 
-    // Generate token
+    // Wygeneruj token
     const token = generateToken(user._id);
 
     res.status(201).json({
@@ -112,9 +112,9 @@ router.post('/register', async (req, res) => {
   } catch (error) {
     console.error('Register error:', error);
 
-    // Handle specific error types
+    // Obsługa konkretnych błędów
     if (error.name === 'MongoServerError' && error.code === 11000) {
-      // Duplicate key error
+      // Błąd duplikatu klucza (email/username)
       return res.status(400).json({ message: 'User already exists with this email or username' });
     }
 
@@ -122,34 +122,34 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ message: error.message });
     }
 
-    // Generic error (log full error for debugging, send generic message to client)
+    // Błąd ogólny
     res.status(500).json({ message: 'Server error during registration' });
   }
 });
 
-// Login
+// Logowanie
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Validation
+    // Walidacja
     if (!email || !password) {
       return res.status(400).json({ message: 'Please provide email and password' });
     }
 
-    // Find user
+    // Znajdź użytkownika
     const user = await User.findOne({ email });
     if (!user) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    // Check password
+    // Sprawdź hasło
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    // Generate token
+    // Wygeneruj token
     const token = generateToken(user._id);
 
     res.json({

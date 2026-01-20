@@ -40,6 +40,7 @@ const WorkoutPlanEditorScreen = ({ navigation, route }) => {
   const [loadingExercises, setLoadingExercises] = useState(false);
   const [showExerciseModal, setShowExerciseModal] = useState(false);
   const [exerciseFilter, setExerciseFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [saving, setSaving] = useState(false);
 
   // Exercise Creation
@@ -50,6 +51,7 @@ const WorkoutPlanEditorScreen = ({ navigation, route }) => {
   const [selectedSecondaryMuscles, setSelectedSecondaryMuscles] = useState({}); // { groupName: [subMuscleIds] }
   const [expandedSecondaryGroups, setExpandedSecondaryGroups] = useState([]);
   const [creatingExercise, setCreatingExercise] = useState(false);
+  const [isBodyweight, setIsBodyweight] = useState(false);
 
   useEffect(() => {
     fetchExercises();
@@ -156,7 +158,8 @@ const WorkoutPlanEditorScreen = ({ navigation, route }) => {
         muscleGroup: newExerciseMuscle,
         secondaryMuscles: secondaryMusclesPayload,
         muscleEngagement: engagement,
-        equipment: 'Other',
+        muscleEngagement: engagement,
+        equipment: isBodyweight ? 'Bodyweight' : 'Other',
         type: 'Isolation'
       };
 
@@ -538,6 +541,26 @@ const WorkoutPlanEditorScreen = ({ navigation, route }) => {
 
           {exerciseModalTab === 'list' ? (
             <>
+              {/* Search Bar */}
+              <View style={{ paddingHorizontal: 20, marginBottom: 12 }}>
+                <TextInput
+                  style={{
+                    backgroundColor: '#0F172A',
+                    borderRadius: 12,
+                    paddingHorizontal: 16,
+                    paddingVertical: 12,
+                    fontSize: 16,
+                    color: '#FFFFFF',
+                    borderWidth: 1.5,
+                    borderColor: '#334155',
+                  }}
+                  placeholder="Szukaj ćwiczenia..."
+                  placeholderTextColor="#6B7280"
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                />
+              </View>
+
               {/* Muscle Group Filters */}
               <View style={{ marginBottom: 10 }}>
                 <ScrollView
@@ -578,7 +601,10 @@ const WorkoutPlanEditorScreen = ({ navigation, route }) => {
                 <ActivityIndicator size="large" color="#3B82F6" style={{ marginTop: 20 }} />
               ) : (
                 <FlatList
-                  data={availableExercises.filter(ex => exerciseFilter === 'all' || ex.muscleGroup === exerciseFilter)}
+                  data={availableExercises.filter(ex =>
+                    (exerciseFilter === 'all' || ex.muscleGroup === exerciseFilter) &&
+                    ex.name.toLowerCase().includes(searchQuery.toLowerCase())
+                  )}
                   keyExtractor={(item) => item._id}
                   contentContainerStyle={{ padding: 20 }}
                   renderItem={({ item }) => (
@@ -628,6 +654,39 @@ const WorkoutPlanEditorScreen = ({ navigation, route }) => {
                 value={newExerciseName}
                 onChangeText={setNewExerciseName}
               />
+
+              {/* Bodyweight Checkbox */}
+              <TouchableOpacity
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  marginTop: 16,
+                  backgroundColor: '#1E293B',
+                  padding: 12,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: isBodyweight ? '#3B82F6' : '#334155'
+                }}
+                onPress={() => setIsBodyweight(!isBodyweight)}
+              >
+                <View style={{
+                  width: 20,
+                  height: 20,
+                  borderRadius: 6,
+                  borderWidth: 2,
+                  borderColor: isBodyweight ? '#3B82F6' : '#94A3B8',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 10,
+                  backgroundColor: isBodyweight ? '#3B82F6' : 'transparent'
+                }}>
+                  {isBodyweight && <Text style={{ color: '#FFF', fontSize: 12, fontWeight: 'bold' }}>✓</Text>}
+                </View>
+                <View>
+                  <Text style={{ color: '#FFF', fontWeight: '600' }}>Ćwiczenie Bodyweight</Text>
+                  <Text style={{ color: '#94A3B8', fontSize: 12 }}>Automatycznie dodaje wagę ciała</Text>
+                </View>
+              </TouchableOpacity>
 
               <Text style={[styles.label, { marginTop: 20 }]}>PARTIA MIĘŚNIOWA</Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>

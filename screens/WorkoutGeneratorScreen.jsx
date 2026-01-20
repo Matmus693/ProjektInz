@@ -19,7 +19,7 @@ const WorkoutGeneratorScreen = ({ navigation }) => {
     const [trainingType, setTrainingType] = useState('CUSTOM');
     const [generatedPlan, setGeneratedPlan] = useState(null);
 
-    // Muscle group definitions with Polish labels
+    // Definicje grup mięśniowych z polskimi etykietami
     const muscleGroups = {
         chest: {
             label: 'Klatka',
@@ -144,7 +144,7 @@ const WorkoutGeneratorScreen = ({ navigation }) => {
         <SafeAreaView style={styles.container}>
             <StatusBar barStyle="light-content" />
 
-            {/* Header */}
+            {/* Nagłówek */}
             <View style={styles.header}>
                 <TouchableOpacity
                     style={styles.backButton}
@@ -163,7 +163,7 @@ const WorkoutGeneratorScreen = ({ navigation }) => {
             >
                 {!generatedPlan ? (
                     <>
-                        {/* Training Type Selection */}
+                        {/* Wybór Typu Planu */}
                         <View style={styles.section}>
                             <Text style={styles.sectionTitle}>TYP PLANU</Text>
                             <View style={styles.typeGrid}>
@@ -187,7 +187,7 @@ const WorkoutGeneratorScreen = ({ navigation }) => {
                             </View>
                         </View>
 
-                        {/* Muscle Group Selection */}
+                        {/* Wybór Partii Mięśniowych */}
                         <View style={styles.section}>
                             <Text style={styles.sectionTitle}>PARTIE MIĘŚNIOWE</Text>
 
@@ -216,7 +216,7 @@ const WorkoutGeneratorScreen = ({ navigation }) => {
                             })}
                         </View>
 
-                        {/* Generate Button */}
+                        {/* Przycisk Generuj */}
                         <TouchableOpacity
                             style={[styles.generateButton, generating && styles.generateButtonDisabled]}
                             onPress={handleGenerate}
@@ -231,11 +231,11 @@ const WorkoutGeneratorScreen = ({ navigation }) => {
                     </>
                 ) : (
                     <>
-                        {/* Generated Plan Display */}
+                        {/* Wyświetlanie Wygenerowanego Planu */}
                         <View style={styles.section}>
                             <Text style={styles.sectionTitle}>WYGENEROWANY PLAN</Text>
 
-                            {/* Analysis Summary */}
+                            {/* Podsumowanie Analizy */}
                             <View style={styles.analysisCard}>
                                 <View style={styles.analysisRow}>
                                     <Text style={styles.analysisLabel}>Ćwiczenia:</Text>
@@ -251,7 +251,7 @@ const WorkoutGeneratorScreen = ({ navigation }) => {
                                 </View>
                             </View>
 
-                            {/* Warnings */}
+                            {/* Ostrzeżenia */}
                             {(generatedPlan.analysis.safety.warnings.length > 0 ||
                                 generatedPlan.analysis.balance.warnings.length > 0) && (
                                     <View style={styles.warningsCard}>
@@ -265,7 +265,7 @@ const WorkoutGeneratorScreen = ({ navigation }) => {
                                     </View>
                                 )}
 
-                            {/* Exercise List */}
+                            {/* Lista Ćwiczeń */}
                             {generatedPlan.exercises.map((exercise, index) => (
                                 <View key={exercise._id || index} style={styles.exerciseCard}>
                                     <View style={styles.exerciseHeader}>
@@ -285,7 +285,7 @@ const WorkoutGeneratorScreen = ({ navigation }) => {
                             ))}
                         </View>
 
-                        {/* Action Buttons */}
+                        {/* Przyciski Akcji */}
                         <View style={styles.actionButtons}>
                             <TouchableOpacity
                                 style={styles.secondaryButton}
@@ -299,7 +299,7 @@ const WorkoutGeneratorScreen = ({ navigation }) => {
                                     try {
                                         setGenerating(true);
 
-                                        // Generate unique name with timestamp
+                                        // Wygeneruj unikalną nazwę ze znacznikiem czasu
                                         const timestamp = new Date().toLocaleString('pl-PL', {
                                             day: '2-digit',
                                             month: '2-digit',

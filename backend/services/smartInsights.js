@@ -1,10 +1,11 @@
 const Exercise = require('../models/Exercise');
 const WorkoutPlan = require('../models/WorkoutPlan');
 const Workout = require('../models/Workout');
+const { translateMuscleList } = require('../utils/translations');
 
 /**
- * Helper: Map muscleGroup to specific muscle parts with default engagement
- * Used as fallback when muscleEngagement is missing/empty
+ * Helper: Mapuje grupę mięśniową na konkretne partie z domyślnym zaangażowaniem.
+ * Używane jako fallback, gdy brakuje szczegółowych danych o muscleEngagement.
  */
 function getMusclePartsFromGroup(muscleGroup) {
     const mapping = {
@@ -20,21 +21,21 @@ function getMusclePartsFromGroup(muscleGroup) {
 }
 
 /**
- * Get muscle engagement from exercise, with fallback to muscleGroup/secondaryMuscles
+ * Pobiera zaangażowanie mięśni z ćwiczenia, z fallbackiem do muscleGroup/secondaryMuscles.
  */
 function getEffectiveEngagement(exerciseDef) {
     const engagement = {};
 
-    // Check if muscleEngagement has any non-zero values
+    // Sprawdź, czy muscleEngagement ma jakiekolwiek wartości niezerowe
     const hasDetailedEngagement = exerciseDef.muscleEngagement &&
         Object.values(exerciseDef.muscleEngagement).some(v => v > 0);
 
     if (hasDetailedEngagement) {
-        // Use detailed engagement
+        // Użyj szczegółowego zaangażowania
         return exerciseDef.muscleEngagement;
     }
 
-    // Fallback: use muscleGroup (80%) + secondaryMuscles (40%)
+    // Fallback: użyj muscleGroup (80%) + secondaryMuscles (40%)
     if (exerciseDef.muscleGroup) {
         const primaryMuscles = getMusclePartsFromGroup(exerciseDef.muscleGroup);
         Object.assign(engagement, primaryMuscles);
@@ -44,13 +45,13 @@ function getEffectiveEngagement(exerciseDef) {
         for (const secondaryEntry of exerciseDef.secondaryMuscles) {
             // Handle both old format (string) and new format ({ group, subMuscles })
             if (typeof secondaryEntry === 'string') {
-                // Old format: just group name
+                // Stary format: tylko nazwa grupy
                 const secondaryMusclesParts = getMusclePartsFromGroup(secondaryEntry);
                 for (const [muscle, _] of Object.entries(secondaryMusclesParts)) {
                     engagement[muscle] = 40;
                 }
             } else if (secondaryEntry.group && secondaryEntry.subMuscles) {
-                // New format: { group, subMuscles: [subIds] }
+                // Nowy format: { group, subMuscles: [subIds] }
                 for (const subMuscleId of secondaryEntry.subMuscles) {
                     engagement[subMuscleId] = 40;
                 }
@@ -62,24 +63,24 @@ function getEffectiveEngagement(exerciseDef) {
 }
 
 /**
- * Analyze training history from last 7 days
- * Calculate volume, frequency, and rest days for each muscle group
+ * Analizuje historię treningową z ostatnich 7 dni.
+ * Oblicza objętość (volume), częstotliwość i dni przerwy dla każdej partii mięśniowej.
  */
 async function analyzeTrainingHistory(userId) {
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-    // Format as YYYY-MM-DD to match string dates in database
+    // Format YYYY-MM-DD, aby pasował do dat zapisanych w bazie jako stringi
     const sevenDaysAgoString = sevenDaysAgo.toISOString().split('T')[0];
 
-    // Fetch workouts from last 7 days
-    // Note: date field is stored as string (YYYY-MM-DD), so we compare strings
+    // Pobierz treningi z ostatnich 7 dni
+    // Uwaga: pole date jest stringiem (YYYY-MM-DD), więc porównujemy stringi
     const workouts = await Workout.find({
         userId,
         date: { $gte: sevenDaysAgoString }
     }).sort({ date: -1 });
 
-    // Initialize muscle stats
+    // Inicjalizacja statystyk mięśniowych
     const muscleStats = {
         upperChest: { volume: 0, frequency: 0, lastTrained: null },
         middleChest: { volume: 0, frequency: 0, lastTrained: null },
@@ -102,18 +103,18 @@ async function analyzeTrainingHistory(userId) {
         obliques: { volume: 0, frequency: 0, lastTrained: null }
     };
 
-    // Process each workout
+    // Przetwórz każdy trening
     for (const workout of workouts) {
         for (const exercise of workout.exercises) {
-            // Get exercise definition
+            // Pobierz definicję ćwiczenia
             const exerciseDef = await Exercise.findOne({ name: exercise.name });
             if (!exerciseDef) continue;
 
-            // Get effective engagement (detailed or fallback)
+            // Pobierz skuteczne zaangażowanie (szczegółowe lub fallback)
             const engagement = getEffectiveEngagement(exerciseDef);
             if (Object.keys(engagement).length === 0) continue;
 
-            // Calculate total volume for this exercise (weight × reps × sets)
+            // Oblicz całkowitą objętość dla tego ćwiczenia (ciężar × powtórzenia × serie)
             let exerciseVolume = 0;
             let hasAnyWork = false;
             for (const set of exercise.sets) {
@@ -122,22 +123,22 @@ async function analyzeTrainingHistory(userId) {
 
                 if (reps > 0) {
                     hasAnyWork = true;
-                    // For bodyweight exercises (weight=0), use reps as volume
-                    // For weighted exercises, use weight × reps
+                    // Dla ćwiczeń z masą własną (ciężar=0) używamy powtórzeń jako objętości
+                    // Dla ćwiczeń z ciężarem: ciężar × powtórzenia
                     exerciseVolume += weight > 0 ? (weight * reps) : reps;
                 }
             }
 
-            // Skip exercises with no work done (both weight and reps are 0)
+            // Pomiń ćwiczenia, gdzie nie wykonano pracy (ciężar i powtórzenia = 0)
             if (!hasAnyWork) continue;
 
-            // Distribute volume across engaged muscles
+            // Rozdziel objętość na zaangażowane mięśnie
             for (const [muscle, engagementPercent] of Object.entries(engagement)) {
                 if (engagementPercent > 0 && muscleStats[muscle]) {
-                    // Volume is weighted by engagement percentage
+                    // Objętość ważona procentem zaangażowania
                     muscleStats[muscle].volume += (exerciseVolume * engagementPercent) / 100;
 
-                    // Update last trained date
+                    // Zaktualizuj datę ostatniego treningu
                     if (!muscleStats[muscle].lastTrained || workout.date > muscleStats[muscle].lastTrained) {
                         muscleStats[muscle].lastTrained = workout.date;
                     }
@@ -146,20 +147,20 @@ async function analyzeTrainingHistory(userId) {
         }
     }
 
-    // Calculate frequency (how many different days each muscle was trained)
+    // Oblicz częstotliwość (ile różnych dni trenowano dany mięsień)
     for (const workout of workouts) {
-        const workoutDate = workout.date; // Already a string (YYYY-MM-DD)
+        const workoutDate = workout.date; // Już jest stringiem (YYYY-MM-DD)
         const musclesTrainedToday = new Set();
 
         for (const exercise of workout.exercises) {
             const exerciseDef = await Exercise.findOne({ name: exercise.name });
             if (!exerciseDef) continue;
 
-            // Get effective engagement
+            // Pobierz skuteczne zaangażowanie
             const engagement = getEffectiveEngagement(exerciseDef);
             if (Object.keys(engagement).length === 0) continue;
 
-            // Calculate volume for this exercise
+            // Oblicz objętość dla tego ćwiczenia
             let hasAnyWork = false;
             for (const set of exercise.sets) {
                 const weight = parseFloat(set.weight) || 0;
@@ -171,7 +172,7 @@ async function analyzeTrainingHistory(userId) {
                 }
             }
 
-            // Only count if exercise had any work done
+            // Licz tylko jeśli wykonano jakąkolwiek pracę
             if (!hasAnyWork) continue;
 
             for (const [muscle, engagementPercent] of Object.entries(engagement)) {
@@ -181,7 +182,7 @@ async function analyzeTrainingHistory(userId) {
             }
         }
 
-        // Increment frequency for each muscle trained today
+        // Zwiększ licznik częstotliwości dla każdego trenowanego dzisiaj mięśnia
         for (const muscle of musclesTrainedToday) {
             muscleStats[muscle].frequency++;
         }
@@ -191,7 +192,7 @@ async function analyzeTrainingHistory(userId) {
 }
 
 /**
- * Classify muscles into categories based on training status
+ * Klasyfikuje mięśnie do kategorii na podstawie statusu treningowego.
  */
 function identifyMuscleStatus(muscleStats) {
     const now = new Date();
@@ -202,7 +203,7 @@ function identifyMuscleStatus(muscleStats) {
         rested: []
     };
 
-    // Aggregate into major muscle groups for easier analysis
+    // Agreguj do głównych grup mięśniowych dla łatwiejszej analizy
     const aggregated = {
         chest: {
             volume: muscleStats.upperChest.volume + muscleStats.middleChest.volume + muscleStats.lowerChest.volume,
@@ -248,25 +249,25 @@ function identifyMuscleStatus(muscleStats) {
         }
     };
 
-    // Classify each major muscle group
+    // Sklasyfikuj każdą główną grupę mięśniową
     for (const [group, stats] of Object.entries(aggregated)) {
         const daysSinceLastTrained = stats.lastTrained
             ? Math.floor((now - new Date(stats.lastTrained)) / (1000 * 60 * 60 * 24))
             : 999;
 
-        // Overtrained: very high frequency (5+ times/week) OR high frequency with recent training
+        // Przetrenowane: bardzo wysoka częstotliwość (5+ razy/tydzień) LUB wysoka częstotliwość z niedawnym treningiem
         if (stats.frequency >= 5 || (stats.frequency >= 3 && daysSinceLastTrained < 1)) {
             status.overtrained.push(group);
         }
-        // Undertrained: not trained at all in 7 days
+        // Niedotrenowane: nie trenowane wcale w ciągu ostatnich 7 dni
         else if (stats.volume === 0 || daysSinceLastTrained >= 7) {
             status.undertrained.push(group);
         }
-        // Rested: 3-6 days since last training (ready for heavy work)
+        // Wypoczęte: 3-6 dni od ostatniego treningu (gotowe na ciężką pracę)
         else if (daysSinceLastTrained >= 3 && daysSinceLastTrained < 7) {
             status.rested.push(group);
         }
-        // Ready: 1-2 days rest (can train but not priority)
+        // Gotowe: 1-2 dni odpoczynku (można trenować, ale nie priorytet)
         else {
             status.ready.push(group);
         }
@@ -276,31 +277,45 @@ function identifyMuscleStatus(muscleStats) {
 }
 
 /**
- * Generate workout recommendation based on muscle status
+ * Generuje rekomendację treningową na podstawie statusu mięśni.
  */
 async function generateRecommendation(userId, muscleStatus) {
     const { status, aggregated } = muscleStatus;
 
-    // Calculate which muscles were trained today OR yesterday (48h rest rule)
-    const VOLUME_THRESHOLD = 3000;
+    // Oblicz, które mięśnie były trenowane dzisiaj LUB wczoraj (zasada 48h regeneracji)
+    // ULEPSZONE: Użyj progów specyficznych dla mięśni
+    // Duże grupy (nogi, plecy) potrzebują znacznie większej objętości, aby zostać "zablokowane"
+    // Małe grupy (ramiona, barki) potrzebują mniej
+    const getVolumeThreshold = (muscle) => {
+        const thresholds = {
+            'legs': 8000,      // Nogi potrzebują dużej objętości, aby być naprawdę przetrenowane
+            'back': 8000,      // Plecy również potrzebują dużej objętości
+            'chest': 5000,     // Klatka średnio-dużo
+            'shoulders': 4000, // Barki średnio
+            'arms': 3000,      // Ramiona mniej
+            'core': 3000       // Brzuch/Core mniej
+        };
+        return thresholds[muscle] || 5000; // Domyślnie dla nieznanych
+    };
+
     const now = new Date();
     const blockedMuscles = [];
 
     for (const [muscle, stats] of Object.entries(aggregated)) {
         if (stats.lastTrained) {
             const daysSince = Math.floor((now - new Date(stats.lastTrained)) / (1000 * 60 * 60 * 24));
-            // Block if trained today (daysSince === 0) OR yesterday (daysSince === 1)
-            // This ensures minimum 48h rest between same muscle groups
-            if (daysSince <= 1 && stats.volume >= VOLUME_THRESHOLD) {
+            const threshold = getVolumeThreshold(muscle);
+
+            // Zablokuj, jeśli trenowane dzisiaj (dni=0) LUB wczoraj (dni=1)
+            // To zapewnia minimum 48h przerwy między tymi samymi partiami
+            if (daysSince <= 1 && stats.volume >= threshold) {
                 blockedMuscles.push(muscle);
             }
         }
     }
 
-    // Helper: Filter out muscles trained heavily in last 48h
-    // Secondary muscles (low volume) don't block recommendations
-    const VOLUME_THRESHOLD_FILTER = 3000; // Volume below this = secondary/incidental work
-
+    // Helper: Odfiltruj mięśnie trenowane ciężko w ciągu ostatnich 48h
+    // Mięśnie pomocnicze (mała objętość) nie blokują rekomendacji
     const getMusclesNotTrainedRecently = (muscles) => {
         return muscles.filter(muscle => {
             const stats = aggregated[muscle];
@@ -308,50 +323,98 @@ async function generateRecommendation(userId, muscleStatus) {
 
             const daysSince = Math.floor((now - new Date(stats.lastTrained)) / (1000 * 60 * 60 * 24));
 
-            // If 2+ days ago, it's available (48h rest)
+            // Jeśli 2+ dni temu, są dostępne (48h odpoczynku)
             if (daysSince >= 2) return true;
 
-            // If trained recently (today or yesterday) but low volume (secondary work), still available
-            return stats.volume < VOLUME_THRESHOLD_FILTER;
+            // Jeśli trenowane niedawno (dziś/wczoraj), ale mała objętość (praca pomocnicza), nadal dostępne
+            const threshold = getVolumeThreshold(muscle);
+            return stats.volume < threshold;
         });
     };
 
-    // Priority 1: If major muscle groups are undertrained, suggest them
+
+
+    // Priorytet 1: Jeśli główne grupy mięśniowe są niedotrenowane, sugeruj je
     if (status.undertrained.length > 0) {
-        // Try to find existing plan for undertrained muscles
-        const targetMuscles = status.undertrained;
+        // ULEPSZONE: Wybierz JEDNĄ główną niedotrenowaną partię, a nie wszystkie
+        // Zapobiega to łączeniu "nogi + plecy", nawet jeśli obie są niedotrenowane
+        const majorUndertrainedGroups = ['legs', 'chest', 'back', 'shoulders'];
+        const minorUndertrainedGroups = ['arms', 'core'];
+
+        // Znajdź niedotrenowaną partię o najwyższym priorytecie
+        const primaryUndertrained = status.undertrained.find(m => majorUndertrainedGroups.includes(m));
+
+        let targetMuscles = [];
+        if (primaryUndertrained) {
+            targetMuscles = [primaryUndertrained];
+
+            // Opcjonalnie dodaj kompatybilną mniejszą partię
+            const compatibleMinor = status.undertrained.find(m =>
+                minorUndertrainedGroups.includes(m) && !targetMuscles.includes(m)
+            );
+            if (compatibleMinor) {
+                targetMuscles.push(compatibleMinor);
+            }
+        } else {
+            // Tylko mniejsze partie są niedotrenowane
+            targetMuscles = status.undertrained.slice(0, 2);
+        }
+
         const plan = await findMatchingPlan(userId, targetMuscles, muscleStatus, blockedMuscles);
 
         if (plan) {
             return {
                 type: 'existing_plan',
                 plan: plan,
-                reason: `Następujące partie mięśniowe wymagają treningu: ${targetMuscles.join(', ')}. Sugerujemy plan "${plan.name}".`,
+                reason: `Następujące partie mięśniowe wymagają treningu: ${translateMuscleList(targetMuscles)}. Sugerujemy plan "${plan.name}".`,
                 muscleGroups: targetMuscles
             };
         } else {
-            // Generate temporary plan
+            // Wygeneruj plan tymczasowy
             const tempPlan = await generateTemporaryPlan(userId, targetMuscles, 'undertrained');
             return {
                 type: 'temporary_plan',
                 plan: tempPlan,
-                reason: `Wygenerowaliśmy plan dopełniający dla: ${targetMuscles.join(', ')}.`,
+                reason: `Wygenerowaliśmy plan dopełniający dla: ${translateMuscleList(targetMuscles)}.`,
                 muscleGroups: targetMuscles
             };
         }
     }
 
-    // Priority 2: Train rested muscles (3+ days)
+
+    // Priorytet 2: Trenuj wypoczęte mięśnie (3+ dni)
     const restedNotToday = getMusclesNotTrainedRecently(status.rested);
     if (restedNotToday.length > 0) {
-        const targetMuscles = restedNotToday;
+        // ULEPSZONE: Wybierz JEDNĄ główną wypoczętą partię
+        const majorRestedGroups = ['legs', 'chest', 'back', 'shoulders'];
+        const minorRestedGroups = ['arms', 'core'];
+
+        // Znajdź wypoczętą partię o najwyższym priorytecie
+        const primaryRested = restedNotToday.find(m => majorRestedGroups.includes(m));
+
+        let targetMuscles = [];
+        if (primaryRested) {
+            targetMuscles = [primaryRested];
+
+            // Optionally add a compatible minor muscle
+            const compatibleMinor = restedNotToday.find(m =>
+                minorRestedGroups.includes(m) && !targetMuscles.includes(m)
+            );
+            if (compatibleMinor) {
+                targetMuscles.push(compatibleMinor);
+            }
+        } else {
+            // Only minor muscles are rested
+            targetMuscles = restedNotToday.slice(0, 2);
+        }
+
         const plan = await findMatchingPlan(userId, targetMuscles, muscleStatus, blockedMuscles);
 
         if (plan) {
             return {
                 type: 'existing_plan',
                 plan: plan,
-                reason: `Partie mięśniowe gotowe do treningu: ${targetMuscles.join(', ')}. Sugerujemy plan "${plan.name}".`,
+                reason: `Partie mięśniowe gotowe do treningu: ${translateMuscleList(targetMuscles)}. Sugerujemy plan "${plan.name}".`,
                 muscleGroups: targetMuscles
             };
         }
@@ -367,17 +430,17 @@ async function generateRecommendation(userId, muscleStatus) {
     console.log('DEBUG - Blocked muscles:', blockedMuscles);
 
     if (availableMuscles.length > 0) {
-        // ROTATION LOGIC: Prefer muscle groups trained longest ago
-        // Prevents: Push Mon -> Rest Tue -> Push Wed (without Pull/Legs)
+        // LOGIKA ROTACJI: Preferuj grupy mięśniowe trenowane najdawniej
+        // Zapobiega: Push Pon -> Odpoczynek Wt -> Push Śr (bez Pull/Legs)
 
-        // Define major muscle group priority (for PPL split)
+        // Zdefiniuj priorytety głównych grup mięśniowych (dla splitu PPL)
         const majorGroups = ['legs', 'chest', 'back', 'shoulders'];
         const getMajorPriority = (muscle) => {
             if (muscle === 'legs') return 0; // Highest priority
             if (muscle === 'chest' || muscle === 'back') return 1;
             if (muscle === 'shoulders') return 2;
             if (muscle === 'arms') return 3;
-            return 4; // core, etc - lowest priority
+            return 4; // core itp - najniższy priorytet
         };
 
         const musclesByRecency = availableMuscles.map(muscle => ({
@@ -388,16 +451,41 @@ async function generateRecommendation(userId, muscleStatus) {
             volume: aggregated[muscle]?.volume || 0,
             priority: getMajorPriority(muscle)
         })).sort((a, b) => {
-            // Primary sort: Major muscle groups first (legs, chest, back, shoulders before arms/core)
+            // Sortowanie główne: Główne grupy mięśniowe najpierw (nogi, klatka, plecy, barki przed ramionami/corem)
             if (a.priority !== b.priority) return a.priority - b.priority;
-            // Secondary: Oldest first (most days since training)
+            // Sortowanie drugorzędne: Najstarsze najpierw (najwięcej dni od treningu)
             if (b.daysSince !== a.daysSince) return b.daysSince - a.daysSince;
-            // Tie-breaker: Lowest volume first (least trained = priority)
+            // Rozstrzyganie remisów: Najniższa objętość najpierw (najmniej trenowane = priorytet)
             return a.volume - b.volume;
         });
 
         console.log('DEBUG - Muscles by recency:', musclesByRecency);
-        const targetMuscles = musclesByRecency.slice(0, 2).map(m => m.muscle); // Top 2 oldest/least trained
+
+        // ULEPSZONA LOGIKA: Wybierz JEDNĄ główną grupę mięśniową (nogi, klatka, plecy, barki)
+        // i opcjonalnie połącz z mniejszymi grupami (ramiona, core)
+        // To zapobiega łączeniu nogi + plecy w jeden trening
+        const primaryMajorGroups = ['legs', 'chest', 'back', 'shoulders'];
+        const minorGroups = ['arms', 'core'];
+
+        // Znajdź główną grupę o najwyższym priorytecie
+        const primaryMuscle = musclesByRecency.find(m => primaryMajorGroups.includes(m.muscle));
+
+        let targetMuscles = [];
+        if (primaryMuscle) {
+            targetMuscles = [primaryMuscle.muscle];
+
+            // Opcjonalnie dodaj kompatybilną mniejszą grupę
+            const compatibleMinor = musclesByRecency.find(m =>
+                minorGroups.includes(m.muscle) && !targetMuscles.includes(m.muscle)
+            );
+            if (compatibleMinor) {
+                targetMuscles.push(compatibleMinor.muscle);
+            }
+        } else {
+            // Jeśli brak głównych grup, weź 2 czołowe mniejsze domyślnie
+            targetMuscles = musclesByRecency.slice(0, 2).map(m => m.muscle);
+        }
+
         console.log('DEBUG - Target muscles for plan:', targetMuscles);
         const plan = await findMatchingPlan(userId, targetMuscles, muscleStatus, blockedMuscles);
         console.log('DEBUG - Plan found:', plan ? plan.name : 'NO PLAN FOUND');
@@ -409,25 +497,45 @@ async function generateRecommendation(userId, muscleStatus) {
                 muscleGroups: availableMuscles
             };
         }
-        // FALLBACK: Generate plan if no existing one matches
+        // FALLBACK: Wygeneruj plan, jeśli żaden istniejący nie pasuje
         const workoutGenerator = require('./workoutGenerator');
-        const generatedPlan = await workoutGenerator.generateOptimalPlan(targetMuscles, 'CUSTOM', 6);
 
-        if (generatedPlan && generatedPlan.exercises.length > 0) {
+        // Mapuj grupy mięśniowe na konkretne partie dla generatora
+        const muscleGroupToParts = {
+            'legs': ['quads', 'hamstrings', 'glutes', 'calves'],
+            'back': ['backWidth', 'backMiddle', 'backLower'],
+            'chest': ['upperChest', 'middleChest', 'lowerChest'],
+            'shoulders': ['frontDelts', 'sideDelts', 'rearDelts'],
+            'arms': ['biceps', 'triceps', 'forearms'],
+            'core': ['upperAbs', 'lowerAbs', 'obliques']
+        };
+
+        // Konwertuj nazwy grup na partie mięśniowe
+        const targetMuscleParts = [];
+        for (const group of targetMuscles) {
+            if (muscleGroupToParts[group]) {
+                targetMuscleParts.push(...muscleGroupToParts[group]);
+            }
+        }
+
+        console.log('DEBUG - Target muscle parts for generator:', targetMuscleParts);
+        const generatedPlan = await workoutGenerator.generateOptimalPlan(targetMuscleParts, 'CUSTOM', 6);
+
+        if (generatedPlan && generatedPlan.exercises && generatedPlan.exercises.length > 0) {
             return {
                 type: 'generated_plan',
                 plan: {
-                    name: `Trening ${targetMuscles.join(', ')}`,
+                    name: `Trening ${translateMuscleList(targetMuscles)}`,
                     exercises: generatedPlan.exercises,
                     temporary: true
                 },
-                reason: `Wygenerowaliśmy nowy trening dla: ${targetMuscles.join(', ')}.`,
+                reason: `Wygenerowaliśmy nowy trening dla: ${translateMuscleList(targetMuscles)}.`,
                 muscleGroups: targetMuscles
             };
         }
     }
 
-    // Fallback: suggest rest or light workout
+    // Fallback: zasugeruj odpoczynek lub lekki trening
     return {
         type: 'rest',
         reason: 'Większość mięśni jest przetrenowana. Zalecamy dzień odpoczynku lub lekki trening regeneracyjny.',
@@ -436,23 +544,23 @@ async function generateRecommendation(userId, muscleStatus) {
 }
 
 /**
- * Find workout plan matching target muscles and avoiding overtrained ones
- * @param {string} userId - User ID
- * @param {Array} targetMuscles - Muscles we want to train
- * @param {Object} muscleStatus - Status with overtrained/undertrained/rested/ready
- * @param {Array} blockedMuscles - Muscles trained heavily today (should NOT be trained)
+ * Znajduje plan treningowy pasujący do docelowych mięśni i unikający tych przetrenowanych.
+ * @param {string} userId - ID użytkownika
+ * @param {Array} targetMuscles - Mięśnie, które chcemy trenować
+ * @param {Object} muscleStatus - Status z przetrenowanymi/niedotrenowanymi/wypoczętymi/gotowymi
+ * @param {Array} blockedMuscles - Mięśnie trenowane ciężko dzisiaj (te należy POMIJAĆ)
  */
 async function findMatchingPlan(userId, targetMuscles, muscleStatus, blockedMuscles = []) {
     const plans = await WorkoutPlan.find({
         userId,
-        temporary: { $ne: true } // Only permanent plans
+        temporary: { $ne: true } // Tylko stałe plany
     });
 
     if (plans.length === 0) return null;
 
     const { overtrained = [], undertrained = [], rested = [] } = muscleStatus?.status || {};
 
-    // Map muscle groups to keywords in plan names
+    // Mapuj grupy mięśniowe na słowa kluczowe w nazwach planów
     const muscleMap = {
         'chest': ['push', 'chest', 'klatka'],
         'back': ['pull', 'back', 'plecy'],
@@ -462,12 +570,12 @@ async function findMatchingPlan(userId, targetMuscles, muscleStatus, blockedMusc
         'core': ['core', 'abs', 'brzuch']
     };
 
-    // Score each plan based on how well it matches the recommendation
+    // Oceń każdy plan na podstawie tego, jak dobrze pasuje do rekomendacji
     const scoredPlans = plans.map(plan => {
         const planNameLower = plan.name.toLowerCase();
         let score = 0;
 
-        // Check which muscle groups this plan targets
+        // Sprawdź, które grupy mięśniowe ten plan obejmuje
         const planTargets = [];
         for (const [muscle, keywords] of Object.entries(muscleMap)) {
             if (keywords.some(kw => planNameLower.includes(kw))) {
@@ -475,33 +583,33 @@ async function findMatchingPlan(userId, targetMuscles, muscleStatus, blockedMusc
             }
         }
 
-        // HEAVY PENALTY: Plan targets blocked muscles (trained heavily today)
+        // CIĘŻKA KARA: Plan celuje w zablokowane mięśnie (trenowane ciężko dzisiaj)
         const blockedCount = planTargets.filter(m => blockedMuscles.includes(m)).length;
-        score -= blockedCount * 500; // Very high penalty to exclude these
+        score -= blockedCount * 500; // Bardzo wysoka kara, aby je wykluczyć
 
-        // PENALTY: Plan targets overtrained muscles (we want to avoid these)
+        // KARA: Plan celuje w przetrenowane mięśnie (chcemy ich unikać)
         const overtrainedCount = planTargets.filter(m => overtrained.includes(m)).length;
         score -= overtrainedCount * 100;
 
-        // BONUS: Plan targets undertrained muscles (we want these)
+        // BONUS: Plan celuje w niedotrenowane mięśnie (chcemy ich)
         const undertrainedCount = planTargets.filter(m => undertrained.includes(m)).length;
         score += undertrainedCount * 50;
 
-        // BONUS: Plan targets rested muscles (good to train)
+        // BONUS: Plan celuje w wypoczęte mięśnie (dobre do treningu)
         const restedCount = planTargets.filter(m => rested.includes(m)).length;
         score += restedCount * 30;
 
-        // BONUS: Plan targets requested muscles
+        // BONUS: Plan celuje w żądane mięśnie
         const targetCount = planTargets.filter(m => targetMuscles.includes(m)).length;
         score += targetCount * 20;
 
         return { plan, score, targets: planTargets };
     });
 
-    // Sort by score (highest first)
+    // Sortuj po wyniku (najwyższy pierwszy)
     scoredPlans.sort((a, b) => b.score - a.score);
 
-    // Return best plan if it has a positive score
+    // Zwróć najlepszy plan, jeśli ma wynik dodatni
     if (scoredPlans[0] && scoredPlans[0].score > 0) {
         return scoredPlans[0].plan;
     }
@@ -510,21 +618,21 @@ async function findMatchingPlan(userId, targetMuscles, muscleStatus, blockedMusc
 }
 
 /**
- * Generate temporary workout plan for specific muscle groups
+ * Generuje tymczasowy plan treningowy dla określonych grup mięśniowych.
  */
 async function generateTemporaryPlan(userId, targetMuscles, reason) {
-    // Check if temporary plan already exists for this user
+    // Sprawdź, czy tymczasowy plan już istnieje dla tego użytkownika
     const existingTempPlan = await WorkoutPlan.findOne({
         userId,
         temporary: true
     });
 
-    // If exists, return it instead of creating a new one
+    // Jeśli istnieje, zwróć go zamiast tworzyć nowy
     if (existingTempPlan) {
         return existingTempPlan;
     }
 
-    // Map muscle groups to specific muscle parts for exercise selection
+    // Mapuj grupy mięśniowe na konkretne partie do wyboru ćwiczeń
     const musclePartsMap = {
         'chest': ['upperChest', 'middleChest', 'lowerChest'],
         'back': ['backWidth', 'backMiddle', 'backLower'],
@@ -541,7 +649,7 @@ async function generateTemporaryPlan(userId, targetMuscles, reason) {
         }
     }
 
-    // Find exercises that target these muscles
+    // Znajdź ćwiczenia, które celują w te mięśnie
     const allExercises = await Exercise.find({});
     const matchingExercises = allExercises.filter(ex => {
         if (!ex.muscleEngagement) return false;
@@ -550,7 +658,7 @@ async function generateTemporaryPlan(userId, targetMuscles, reason) {
         );
     });
 
-    // Select top 5-6 exercises (prioritize compound)
+    // Wybierz top 5-6 ćwiczeń (priorytet dla złożonych)
     const selectedExercises = matchingExercises
         .sort((a, b) => {
             if (a.type === 'Compound' && b.type !== 'Compound') return -1;
@@ -564,10 +672,10 @@ async function generateTemporaryPlan(userId, targetMuscles, reason) {
             sets: []
         }));
 
-    // Create temporary plan
+    // Utwórz plan tymczasowy
     const tempPlan = new WorkoutPlan({
         userId,
-        name: `Trening Dopełniający - ${targetMuscles.join(', ')}`,
+        name: `Trening Dopełniający - ${translateMuscleList(targetMuscles)}`,
         description: `Automatycznie wygenerowany plan na podstawie analizy (${reason})`,
         type: 'Szablon',
         temporary: true,

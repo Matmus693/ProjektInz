@@ -42,6 +42,7 @@ const ProgressScreen = ({ navigation }) => {
   const [loadingExerciseStats, setLoadingExerciseStats] = useState(false);
   const [showAllWeightHistory, setShowAllWeightHistory] = useState(false);
   const [exerciseFilter, setExerciseFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const fetchData = async () => {
     try {
@@ -465,6 +466,22 @@ const ProgressScreen = ({ navigation }) => {
                   </View>
                 ))}
               </View>
+
+              {/* View Charts Button */}
+              <TouchableOpacity
+                style={{
+                  backgroundColor: '#3B82F6',
+                  borderRadius: 8,
+                  padding: 12,
+                  marginTop: 12,
+                  alignItems: 'center'
+                }}
+                onPress={() => navigation.navigate('ExerciseProgress', { exerciseName: selectedExercise.name })}
+              >
+                <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 14 }}>
+                  📊 Zobacz wykresy
+                </Text>
+              </TouchableOpacity>
             </View>
           ) : (
             <View style={styles.emptyState}>
@@ -609,6 +626,26 @@ const ProgressScreen = ({ navigation }) => {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Wybierz ćwiczenie</Text>
 
+            {/* Search Bar */}
+            <View style={{ marginBottom: 12 }}>
+              <TextInput
+                style={{
+                  backgroundColor: '#0F172A',
+                  borderRadius: 12,
+                  paddingHorizontal: 16,
+                  paddingVertical: 12,
+                  fontSize: 16,
+                  color: '#FFFFFF',
+                  borderWidth: 1.5,
+                  borderColor: '#334155',
+                }}
+                placeholder="Szukaj ćwiczenia..."
+                placeholderTextColor="#6B7280"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+            </View>
+
             {/* Muscle Group Filters */}
             <ScrollView
               horizontal
@@ -645,7 +682,10 @@ const ProgressScreen = ({ navigation }) => {
 
             <ScrollView style={styles.exerciseList}>
               {exercisesList
-                .filter(ex => exerciseFilter === 'all' || ex.muscleGroup === exerciseFilter)
+                .filter(ex =>
+                  (exerciseFilter === 'all' || ex.muscleGroup === exerciseFilter) &&
+                  ex.name.toLowerCase().includes(searchQuery.toLowerCase())
+                )
                 .map((exercise) => (
                   <TouchableOpacity
                     key={exercise._id}

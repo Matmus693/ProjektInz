@@ -1,7 +1,7 @@
 const router = require('express').Router();
 const Exercise = require('../models/Exercise');
 
-// Get all exercises
+// Pobierz wszystkie ćwiczenia
 router.get('/', async (req, res) => {
     try {
         const exercises = await Exercise.find().sort({ name: 1 });
@@ -11,10 +11,10 @@ router.get('/', async (req, res) => {
     }
 });
 
-// Seed endpoint to populate DB (Run once)
+// Endpoint 'seed' do wstępnego wypełnienia bazy (uruchom raz)
 router.post('/seed', async (req, res) => {
     try {
-        // Check if exercises already exist
+        // Sprawdź czy baza jest już pełna
         const count = await Exercise.countDocuments();
         if (count > 0) {
             return res.status(400).json({ message: 'Database already seeded' });
@@ -200,7 +200,7 @@ router.post('/seed', async (req, res) => {
             }
         ];
 
-        // Mark all seed data as NOT custom
+        // Zaznacz, że to ćwiczenia systemowe (nie użytkownika)
         const finalSeedData = seedData.map(ex => ({ ...ex, isCustom: false }));
 
         await Exercise.insertMany(finalSeedData);
@@ -210,7 +210,7 @@ router.post('/seed', async (req, res) => {
     }
 });
 
-// Repair/Restore System Exercises
+// Napraw/Przywróć ćwiczenia systemowe
 router.post('/repair', async (req, res) => {
     try {
         const seedData = [
@@ -407,7 +407,7 @@ router.post('/repair', async (req, res) => {
     }
 });
 
-// Add new exercise
+// Dodaj nowe ćwiczenie
 router.post('/', async (req, res) => {
     const exerciseData = { ...req.body, isCustom: true };
     const exercise = new Exercise(exerciseData);
@@ -419,7 +419,7 @@ router.post('/', async (req, res) => {
     }
 });
 
-// Delete exercise
+// Usuń ćwiczenie
 router.delete('/:id', async (req, res) => {
     try {
         const exercise = await Exercise.findById(req.params.id);
@@ -427,10 +427,7 @@ router.delete('/:id', async (req, res) => {
             return res.status(404).json({ message: 'Exercise not found' });
         }
 
-        // Optional: Block deleting system exercises if you want strictly enforce it
-        // if (exercise.isCustom === false) {
-        //     return res.status(403).json({ message: 'Cannot delete system exercises' });
-        // }
+
 
         await Exercise.findByIdAndDelete(req.params.id);
         res.json({ message: 'Exercise deleted' });

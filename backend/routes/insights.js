@@ -5,21 +5,21 @@ const Exercise = require('../models/Exercise');
 const smartInsights = require('../services/smartInsights');
 const auth = require('../middleware/auth');
 
-// Get smart workout suggestion based on training history
+// Zasugeruj inteligentny trening na podstawie historii
 router.get('/suggest', auth, async (req, res) => {
     try {
         const userId = req.user._id;
 
-        // Analyze training history (last 7 days)
+        // Analizuj historię treningów (ostatnie dni)
         const { muscleStats, workoutCount } = await smartInsights.analyzeTrainingHistory(userId);
 
-        // Identify muscle status (overtrained, undertrained, ready)
+        // Określ stan mięśni (przetrenowane, niedotrenowane, gotowe)
         const muscleStatus = smartInsights.identifyMuscleStatus(muscleStats);
 
-        // Generate recommendation
+        // Wygeneruj rekomendację
         const recommendation = await smartInsights.generateRecommendation(userId, muscleStatus);
 
-        // Format response based on recommendation type
+        // Sformatuj odpowiedź w zależności od typu rekomendacji
         if (recommendation.type === 'existing_plan') {
             return res.json({
                 type: recommendation.plan.name,
@@ -49,6 +49,18 @@ router.get('/suggest', auth, async (req, res) => {
                 reason: recommendation.reason,
                 suggestedPlan: null,
                 muscleGroups: [],
+                analysis: {
+                    workoutCount,
+                    muscleStatus: muscleStatus.status
+                }
+            });
+        } else if (recommendation.type === 'generated_plan') {
+            return res.json({
+                type: 'Wygenerowany Plan',
+                reason: recommendation.reason,
+                suggestedPlan: recommendation.plan,
+                muscleGroups: recommendation.muscleGroups,
+                temporary: true,
                 analysis: {
                     workoutCount,
                     muscleStatus: muscleStatus.status

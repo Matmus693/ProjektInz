@@ -29,8 +29,6 @@ const HomeScreen = ({ navigation }) => {
     try {
       setLoading(true);
 
-      // 1. Fetch Monthly Stats
-      // 1. Fetch Monthly Stats
       const stats = await api.getStats();
       if (stats && stats.current) {
         setMonthlyStats(stats.current);
@@ -38,15 +36,15 @@ const HomeScreen = ({ navigation }) => {
         setMonthlyStats(stats);
       }
 
-      // 2. Fetch Last Workout
+      // 2. Pobierz ostatni trening
       const workouts = await api.getWorkouts();
       if (workouts && workouts.length > 0) {
-        setLastWorkout(workouts[0]); // Sorted by date desc in backend
+        setLastWorkout(workouts[0]); // Sortowane po dacie malejąco w backendzie
       } else {
         setLastWorkout(null);
       }
 
-      // 3. Fetch Insight
+      // 3. Pobierz Insight (rekomendację)
       const insightData = await api.getInsight();
       if (insightData) {
         setInsight({
@@ -88,7 +86,7 @@ const HomeScreen = ({ navigation }) => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
+        {/* Nagłówek */}
         <View style={styles.header}>
           <View>
             <Text style={styles.greeting}>Witaj!</Text>
@@ -107,7 +105,7 @@ const HomeScreen = ({ navigation }) => {
           </View>
         )}
 
-        {/* Monthly Summary */}
+        {/* Podsumowanie miesięczne */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>MIESIĘCZNE PODSUMOWANIE</Text>
           <View style={styles.statsGrid}>
@@ -132,7 +130,7 @@ const HomeScreen = ({ navigation }) => {
           </View>
         </View>
 
-        {/* Last Workout */}
+        {/* Ostatni trening */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>OSTATNI TRENING</Text>
           {lastWorkout ? (
@@ -160,7 +158,7 @@ const HomeScreen = ({ navigation }) => {
 
               <View style={styles.exercisesList}>
                 {(lastWorkout.exercises || []).slice(0, 3).map((exercise, index) => {
-                  // Calculate avg stats
+                  // Oblicz średnie statystyki
                   const validSets = exercise.sets.filter(s => s.weight && s.reps);
                   const avgWeight = validSets.length > 0
                     ? validSets.reduce((sum, set) => sum + parseFloat(set.weight || 0), 0) / validSets.length
@@ -186,9 +184,7 @@ const HomeScreen = ({ navigation }) => {
                 )}
               </View>
 
-              {/* Since we don't have WorkoutDetails screen code in context, I'll assume it exists or disable the button action if not needed yet. 
-                    The plan didn't explicitily mention creating details screen, but user workflow might rely on it.
-                    I'll keep the navigation call. */}
+              {/* Zakładamy, że nawigacja działa poprawnie */}
               <TouchableOpacity style={styles.viewDetailsButton} onPress={() => navigation.navigate('WorkoutDetails', { workout: lastWorkout })}>
                 <Text style={styles.viewDetailsText}>Zobacz szczegóły</Text>
               </TouchableOpacity>
@@ -200,7 +196,7 @@ const HomeScreen = ({ navigation }) => {
           )}
         </View>
 
-        {/* Start Workout Button */}
+        {/* Przycisk Rozpocznij Trening */}
         <TouchableOpacity
           style={styles.startWorkoutButton}
           activeOpacity={0.8}

@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
-// Configure API URL based on platform
+// Konfiguracja URL API w zależności od platformy
 const getApiBaseUrl = () => {
   if (!__DEV__) {
     return 'https://your-production-api.com/api';
@@ -10,13 +10,13 @@ const getApiBaseUrl = () => {
   // Twoje lokalne IP
   const LOCAL_IP = '192.168.55.105';
 
-  // Dla wszystkich platform w development uÅ¼ywamy lokalnego IP
+  // Dla wszystkich platform w trybie development używamy lokalnego IP
   return `http://${LOCAL_IP}:5000/api`;
 };
 
 const API_BASE_URL = getApiBaseUrl();
 
-// Storage key for token
+// Klucze do storage'a (token, user)
 const TOKEN_KEY = '@stillresting_token';
 const USER_KEY = '@stillresting_user';
 
@@ -25,7 +25,7 @@ class ApiService {
     this.baseURL = API_BASE_URL;
   }
 
-  // Get stored token
+  // Pobierz token
   async getToken() {
     try {
       return await AsyncStorage.getItem(TOKEN_KEY);
@@ -35,7 +35,7 @@ class ApiService {
     }
   }
 
-  // Store token
+  // Zapisz token
   async setToken(token) {
     try {
       await AsyncStorage.setItem(TOKEN_KEY, token);
@@ -44,7 +44,7 @@ class ApiService {
     }
   }
 
-  // Remove token
+  // Usuń token (wylogowanie)
   async removeToken() {
     try {
       await AsyncStorage.removeItem(TOKEN_KEY);
@@ -54,7 +54,7 @@ class ApiService {
     }
   }
 
-  // Store user
+  // Zapisz dane użytkownika
   async setUser(user) {
     try {
       await AsyncStorage.setItem(USER_KEY, JSON.stringify(user));
@@ -63,7 +63,7 @@ class ApiService {
     }
   }
 
-  // Get stored user
+  // Pobierz dane użytkownika
   async getUser() {
     try {
       const user = await AsyncStorage.getItem(USER_KEY);
@@ -74,7 +74,7 @@ class ApiService {
     }
   }
 
-  // Make API request
+  // Wykonaj zapytanie do API
   async request(endpoint, options = {}) {
     const token = await this.getToken();
     const headers = {
@@ -114,7 +114,7 @@ class ApiService {
     }
   }
 
-  // Auth methods
+  // Metody autoryzacji
   async register(username, email, password) {
     const response = await this.request('/auth/register', {
       method: 'POST',
@@ -141,7 +141,7 @@ class ApiService {
     await this.removeToken();
   }
 
-  // Workout methods
+  // Metody Treningów
   async getWorkouts() {
     return this.request('/workouts');
   }
@@ -170,7 +170,7 @@ class ApiService {
     });
   }
 
-  // Workout Plan methods
+  // Metody Planów Treningowych
   async getWorkoutPlans() {
     return this.request('/workout-plans');
   }
@@ -203,7 +203,7 @@ class ApiService {
     });
   }
 
-  // Progress methods
+  // Metody Postępu
   async getProgress() {
     return this.request('/progress');
   }
@@ -239,12 +239,12 @@ class ApiService {
     return this.request('/progress/stats');
   }
 
-  // Insights methods
+  // Metody Insight (Rekomendacje)
   async getInsight() {
     return this.request('/insights/suggest');
   }
 
-  // Exercises methods
+  // Metody Ćwiczeń
   async getExercises() {
     return this.request('/exercises');
   }
@@ -278,12 +278,32 @@ class ApiService {
     }
   }
 
-  // Insight methods
+  // Endpointy Postępu (szczegółowe)
+  async getExerciseProgress(exerciseName) {
+    if (!exerciseName) return null;
+    try {
+      return await this.request(`/progress/exercise/${encodeURIComponent(exerciseName)}`);
+    } catch (e) {
+      if (e.status === 404) return null;
+      throw e;
+    }
+  }
+
+  async getLatestUserWeight() {
+    try {
+      const data = await this.request('/progress/latest-weight');
+      return data.weight || 75; // Default
+    } catch (e) {
+      return 75; // Default on error
+    }
+  }
+
+  // Metody Insight
   async getInsight(userId) {
     return this.request(`/insights/suggest?userId=${userId}`);
   }
 
-  // Seeding methods
+  // Metody Seedowania (wypełniania danych)
   async seedWorkoutPlans(userId) {
     return this.request('/workout-plans/seed', {
       method: 'POST',
@@ -297,7 +317,7 @@ class ApiService {
     });
   }
 
-  // Workout Generator methods
+  // Generator Treningów
   async generateWorkoutPlan(targetMuscles, trainingType = 'CUSTOM', maxExercises = 6) {
     return this.request('/workout-generator/generate', {
       method: 'POST',

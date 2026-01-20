@@ -70,13 +70,13 @@ const RegisterScreen = ({ navigation }) => {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.content}>
-            {/* Logo/Header */}
+            {/* Logo/Nagłówek */}
             <View style={styles.header}>
               <Text style={styles.logo}>StillResting</Text>
               <Text style={styles.tagline}>Start Your Journey</Text>
             </View>
 
-            {/* Form */}
+            {/* Formularz */}
             <View style={styles.form}>
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>USERNAME</Text>
@@ -133,7 +133,7 @@ const RegisterScreen = ({ navigation }) => {
                 />
               </View>
 
-              {/* Terms Checkbox */}
+              {/* Checkbox Warunków */}
               <TouchableOpacity
                 style={styles.checkboxContainer}
                 onPress={() => setAgreeToTerms(!agreeToTerms)}
@@ -164,7 +164,7 @@ const RegisterScreen = ({ navigation }) => {
               </TouchableOpacity>
             </View>
 
-            {/* Footer */}
+            {/* Stopka */}
             <View style={styles.footer}>
               <Text style={styles.footerText}>Already have an account? </Text>
               <TouchableOpacity onPress={() => navigation.navigate('Login')}>

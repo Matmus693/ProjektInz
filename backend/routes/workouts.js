@@ -4,7 +4,7 @@ const WorkoutPlan = require('../models/WorkoutPlan');
 const auth = require('../middleware/auth');
 const router = express.Router();
 
-// Get all workouts for user
+// Pobierz wszystkie treningi użytkownika
 router.get('/', auth, async (req, res) => {
   try {
     const workouts = await Workout.find({ userId: req.user._id })
@@ -22,21 +22,46 @@ router.get('/history/last', auth, async (req, res) => {
       return res.status(400).json({ message: 'Missing exerciseName' });
     }
 
-    // Find the most recent workout containing this exercise
+    // Znajdź ostatni trening zawierający to ćwiczenie
     const workout = await Workout.findOne({
       userId: req.user._id,
       'exercises.name': exerciseName
     }).sort({ date: -1, createdAt: -1 });
 
     if (!workout) {
-      // No history is a valid state, not an error
+      // Brak historii to prawidłowy stan, nie błąd
       return res.json(null);
     }
 
     // Extract the specific exercise data
     const exerciseData = workout.exercises.find(e => e.name === exerciseName);
 
-    // Return relevant data (sets, notes, etc.)
+    if (!exerciseData) {
+      return res.json(null);
+    }
+
+    // POPRAWKA: Dla ćwiczeń z masą ciała: odejmij wagę użytkownika,
+    // aby pokazać tylko dodatkowe obciążenie (zapobiega podwójnemu liczeniu)
+    const Exercise = require('../models/Exercise');
+    const Progress = require('../models/Progress');
+
+    const exerciseDef = await Exercise.findOne({ name: exerciseName });
+
+    if (exerciseDef && exerciseDef.equipment === 'Bodyweight') {
+      // Pobierz aktualną wagę użytkownika
+      const progress = await Progress.findOne({ userId: req.user._id });
+      const userWeight = (progress && progress.weight && progress.weight.length > 0)
+        ? progress.weight[0].weight
+        : 75; // Default
+
+      // Odejmij wagę ciała, aby pokazać tylko 'doczepiony' ciężar
+      exerciseData.sets = exerciseData.sets.map(set => ({
+        ...set,
+        weight: Math.max(0, parseFloat(set.weight || 0) - userWeight).toString()
+      }));
+    }
+
+    // Zwróć tylko istotne dane (serie, notatki)
     res.json(exerciseData || null);
   } catch (error) {
     console.error('History lookup error:', error);
@@ -44,7 +69,7 @@ router.get('/history/last', auth, async (req, res) => {
   }
 });
 
-// Get single workout
+// Pobierz pojedynczy trening
 router.get('/:id', auth, async (req, res) => {
   try {
     const workout = await Workout.findOne({
@@ -63,7 +88,7 @@ router.get('/:id', auth, async (req, res) => {
   }
 });
 
-// Create workout
+// Utwórz nowy trening
 router.post('/', auth, async (req, res) => {
   try {
     const workoutData = {
@@ -71,11 +96,45 @@ router.post('/', auth, async (req, res) => {
       userId: req.user._id,
     };
 
+    // AUTO-UZUPEŁNIANIE WAGI CIAŁA: Dodaj wagę usera do ćwiczeń 'Bodyweight'
+    const Exercise = require('../models/Exercise');
+    const Progress = require('../models/Progress');
+
+    // Pobierz ostatnią znaną wagę użytkownika
+    const progress = await Progress.findOne({ userId: req.user._id });
+    const userWeight = (progress && progress.weight && progress.weight.length > 0)
+      ? progress.weight[0].weight
+      : 75; // Default
+
+    // Przetwórz każde ćwiczenie w treningu
+    if (workoutData.exercises && Array.isArray(workoutData.exercises)) {
+      for (let exercise of workoutData.exercises) {
+        // Sprawdź czy definicja ćwiczenia mówi, że to 'Bodyweight'
+        const exerciseDef = await Exercise.findOne({ name: exercise.name });
+
+        if (exerciseDef && exerciseDef.equipment === 'Bodyweight') {
+          // Dla kalisteniki wpisana waga to DODATKOWY ciężar.
+          // Finalna waga w bazie = waga ciała + ciężar dodatkowy
+          if (exercise.sets && Array.isArray(exercise.sets)) {
+            exercise.sets = exercise.sets.map(set => {
+              const additionalWeight = parseFloat(set.weight) || 0;
+              // Zawsze sumujemy te dwie wartości
+              const totalWeight = userWeight + additionalWeight;
+              return {
+                ...set,
+                weight: totalWeight.toString()
+              };
+            });
+          }
+        }
+      }
+    }
+
     const workout = new Workout(workoutData);
     await workout.save();
 
-    // Cleanup temporary plans after workout is saved
-    // These are one-time plans created by the insights system
+    // Posprzątaj plany tymczasowe (jednorazowe sugestie AI)
+    // To plany stworzone przez system rekomendacji, już niepotrzebne
     await WorkoutPlan.deleteMany({
       userId: req.user._id,
       temporary: true
@@ -88,7 +147,7 @@ router.post('/', auth, async (req, res) => {
   }
 });
 
-// Update workout
+// Zaktualizuj istniejący trening
 router.put('/:id', auth, async (req, res) => {
   try {
     const workout = await Workout.findOneAndUpdate(
@@ -108,7 +167,7 @@ router.put('/:id', auth, async (req, res) => {
   }
 });
 
-// Delete workout
+// Usuń trening
 router.delete('/:id', auth, async (req, res) => {
   try {
     const workout = await Workout.findOneAndDelete({

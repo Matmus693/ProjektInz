@@ -3,7 +3,7 @@ const WorkoutPlan = require('../models/WorkoutPlan');
 const auth = require('../middleware/auth');
 const router = express.Router();
 
-// Seed default plans for a user
+// Wypełnij domyślnymi planami dla użytkownika
 router.post('/seed', async (req, res) => {
   try {
     const { userId } = req.body;
@@ -69,7 +69,7 @@ router.post('/seed', async (req, res) => {
   }
 });
 
-// Get template plans for user
+// Pobierz szablony planów dla użytkownika
 router.get('/templates', auth, async (req, res) => {
   try {
     const templates = await WorkoutPlan.find({
@@ -83,7 +83,7 @@ router.get('/templates', auth, async (req, res) => {
   }
 });
 
-// Get all workout plans for user
+// Pobierz wszystkie plany treningowe użytkownika
 router.get('/', auth, async (req, res) => {
   try {
     const plans = await WorkoutPlan.find({ userId: req.user._id })
@@ -95,7 +95,7 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
-// Get single workout plan
+// Pobierz pojedynczy plan treningowy
 router.get('/:id', auth, async (req, res) => {
   try {
     const plan = await WorkoutPlan.findOne({
@@ -114,7 +114,7 @@ router.get('/:id', auth, async (req, res) => {
   }
 });
 
-// Create workout plan
+// Utwórz plan treningowy
 router.post('/', auth, async (req, res) => {
   try {
     const planData = {
@@ -122,7 +122,7 @@ router.post('/', auth, async (req, res) => {
       userId: req.user._id,
     };
 
-    // If setting as active, deactivate other plans
+    // Jeśli ustawiamy jako aktywny, dezaktywuj pozostałe plany
     if (planData.isActive) {
       await WorkoutPlan.updateMany(
         { userId: req.user._id },
@@ -140,10 +140,10 @@ router.post('/', auth, async (req, res) => {
   }
 });
 
-// Update workout plan
+// Zaktualizuj plan treningowy
 router.put('/:id', auth, async (req, res) => {
   try {
-    // If setting as active, deactivate other plans
+    // Jeśli ustawiamy jako aktywny, dezaktywuj pozostałe plany
     if (req.body.isActive) {
       await WorkoutPlan.updateMany(
         { userId: req.user._id, _id: { $ne: req.params.id } },
@@ -168,7 +168,7 @@ router.put('/:id', auth, async (req, res) => {
   }
 });
 
-// Delete workout plan
+// Usuń plan treningowy
 router.delete('/:id', auth, async (req, res) => {
   try {
     const plan = await WorkoutPlan.findOneAndDelete({
