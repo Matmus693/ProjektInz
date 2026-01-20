@@ -10,21 +10,83 @@ import {
   TouchableOpacity,
   Modal,
   Alert,
+  FlatList,
+  ActivityIndicator,
 } from 'react-native';
 import api from '../services/api';
+import { MUSCLE_GROUPS } from '../constants/MuscleAnatomy';
 
 const WorkoutEditorScreen = ({ navigation, route }) => {
   const isEditing = route?.params?.workout !== undefined;
   const existingWorkout = route?.params?.workout;
+  const templatePlan = route?.params?.templatePlan; // Plan to start workout from
 
-  const [workoutName, setWorkoutName] = useState(existingWorkout?.name || '');
-  const [exercises, setExercises] = useState(existingWorkout?.exercises || []);
+  const [workoutName, setWorkoutName] = useState(() => {
+    if (existingWorkout?.name) return existingWorkout.name;
+    if (templatePlan?.name) return templatePlan.name;
+    return '';
+  });
+
+  const [exercises, setExercises] = useState(() => {
+    // If editing existing workout, load its exercises
+    if (existingWorkout?.exercises) {
+      return existingWorkout.exercises.map((ex, idx) => ({
+        ...ex,
+        id: ex.id || (Date.now() + idx),
+        sets: ex.sets ? ex.sets.map((s, sIdx) => ({
+          ...s,
+          id: s.id || (sIdx + 1)
+        })) : []
+      }));
+    }
+    // If starting from template plan, load its exercises
+    if (templatePlan?.exercises) {
+      return templatePlan.exercises.map((ex, idx) => ({
+        ...ex,
+        id: Date.now() + idx,
+        sets: Array(ex.numSets || 3).fill(null).map((_, sIdx) => ({
+          id: sIdx + 1,
+          weight: '',
+          reps: ''
+        }))
+      }));
+    }
+    return [];
+  });
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [startTime, setStartTime] = useState(null);
-  const [elapsedTime, setElapsedTime] = useState(0); // in seconds
+  const [elapsedTime, setElapsedTime] = useState(() => {
+    if (existingWorkout?.duration) {
+      // Parse MM:SS
+      const parts = existingWorkout.duration.split(':');
+      if (parts.length === 2) {
+        return (parseInt(parts[0]) * 60) + parseInt(parts[1]);
+      }
+    }
+    return 0;
+  }); // in seconds
   const [timerRunning, setTimerRunning] = useState(false);
   const [templates, setTemplates] = useState([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
+
+  const [availableExercises, setAvailableExercises] = useState([]);
+  const [loadingExercises, setLoadingExercises] = useState(false);
+  const [showExerciseModal, setShowExerciseModal] = useState(false);
+  const [exerciseFilter, setExerciseFilter] = useState('all');
+
+  // Manual Time Edit
+  const [showTimeModal, setShowTimeModal] = useState(false);
+  const [manualMinutes, setManualMinutes] = useState('');
+  const [manualSeconds, setManualSeconds] = useState('');
+
+  // Exercise Creation
+  const [exerciseModalTab, setExerciseModalTab] = useState('list'); // 'list' or 'create'
+  const [newExerciseName, setNewExerciseName] = useState('');
+  const [newExerciseMuscle, setNewExerciseMuscle] = useState('Chest');
+  const [selectedSubMuscles, setSelectedSubMuscles] = useState([]);
+  const [selectedSecondaryMuscles, setSelectedSecondaryMuscles] = useState({}); // { groupName: [subMuscleIds] }
+  const [expandedSecondaryGroups, setExpandedSecondaryGroups] = useState([]);
+  const [creatingExercise, setCreatingExercise] = useState(false);
 
   // Timer effect
   React.useEffect(() => {
@@ -72,7 +134,36 @@ const WorkoutEditorScreen = ({ navigation, route }) => {
       }
     };
     fetchTemplates();
+    fetchExercises();
   }, []);
+
+  const handleManualTimeUpdate = () => {
+    const mins = parseInt(manualMinutes) || 0;
+    const secs = parseInt(manualSeconds) || 0;
+    const totalSeconds = (mins * 60) + secs;
+
+    setElapsedTime(totalSeconds);
+    if (timerRunning) {
+      setStartTime(Date.now() - (totalSeconds * 1000));
+    }
+    setShowTimeModal(false);
+    setManualMinutes('');
+    setManualSeconds('');
+  };
+
+  const fetchExercises = async () => {
+    try {
+      setLoadingExercises(true);
+      const data = await api.getExercises();
+      if (data) {
+        setAvailableExercises(data);
+      }
+    } catch (err) {
+      console.log('Error fetching exercises', err);
+    } finally {
+      setLoadingExercises(false);
+    }
+  };
 
   // Load template by ID
   const loadTemplate = (template) => {
@@ -104,6 +195,194 @@ const WorkoutEditorScreen = ({ navigation, route }) => {
       ],
     };
     setExercises([...exercises, newExercise]);
+    setExercises([...exercises, newExercise]);
+  };
+
+
+
+  const openCreateModal = () => {
+    setExerciseModalTab('create');
+    setNewExerciseName('');
+    setNewExerciseMuscle('Chest');
+    setSelectedSubMuscles([]);
+    setSelectedSecondaryMuscles({});
+    setExpandedSecondaryGroups([]);
+    setShowExerciseModal(true);
+  };
+
+  const toggleSubMuscle = (subId) => {
+    if (selectedSubMuscles.includes(subId)) {
+      setSelectedSubMuscles(selectedSubMuscles.filter(id => id !== subId));
+    } else {
+      setSelectedSubMuscles([...selectedSubMuscles, subId]);
+    }
+  };
+
+  const toggleSecondaryGroup = (group) => {
+    if (expandedSecondaryGroups.includes(group)) {
+      setExpandedSecondaryGroups(expandedSecondaryGroups.filter(g => g !== group));
+    } else {
+      setExpandedSecondaryGroups([...expandedSecondaryGroups, group]);
+    }
+  };
+
+  const toggleSecondarySubMuscle = (group, subMuscleId) => {
+    const currentSubs = selectedSecondaryMuscles[group] || [];
+    if (currentSubs.includes(subMuscleId)) {
+      const updated = currentSubs.filter(id => id !== subMuscleId);
+      if (updated.length === 0) {
+        const { [group]: _, ...rest } = selectedSecondaryMuscles;
+        setSelectedSecondaryMuscles(rest);
+      } else {
+        setSelectedSecondaryMuscles({ ...selectedSecondaryMuscles, [group]: updated });
+      }
+    } else {
+      setSelectedSecondaryMuscles({
+        ...selectedSecondaryMuscles,
+        [group]: [...currentSubs, subMuscleId]
+      });
+    }
+  };
+
+  const handleCreateExercise = async () => {
+    if (!newExerciseName.trim()) {
+      Alert.alert('Błąd', 'Podaj nazwę ćwiczenia');
+      return;
+    }
+
+    // Validate primary sub-muscles (required, except for Full Body)
+    if (newExerciseMuscle !== 'Full Body' && selectedSubMuscles.length === 0) {
+      Alert.alert('Błąd', 'Zaznacz przynajmniej jedną część mięśnia');
+      return;
+    }
+
+    try {
+      setCreatingExercise(true);
+
+      // Construct muscleEngagement
+      const engagement = {};
+      if (selectedSubMuscles.length > 0) {
+        // Distribute engagement (simplified: 100 for all selected for now, or could split it)
+        // Let's set 100 for primary focus
+        selectedSubMuscles.forEach(sub => {
+          engagement[sub] = 100;
+        });
+      }
+
+      // Build secondaryMuscles with sub-muscle details
+      const secondaryMusclesPayload = Object.entries(selectedSecondaryMuscles).map(([group, subIds]) => ({
+        group,
+        subMuscles: subIds
+      }));
+
+      const payload = {
+        name: newExerciseName,
+        muscleGroup: newExerciseMuscle,
+        secondaryMuscles: secondaryMusclesPayload,
+        muscleEngagement: engagement,
+        equipment: 'Other',
+        type: 'Isolation'
+      };
+
+      const created = await api.createExercise(payload);
+      if (created) {
+        setAvailableExercises([...availableExercises, created]);
+        // await addExerciseFromBase(created); // Wait if async
+        // Simpler to just add it manually here since it's new (no history)
+        const newEx = {
+          localId: Date.now().toString(),
+          name: created.name,
+          muscleGroup: created.muscleGroup,
+          numSets: 3,
+          sets: [
+            { id: Date.now().toString(), weight: '', reps: '' },
+            { id: (Date.now() + 1).toString(), weight: '', reps: '' },
+            { id: (Date.now() + 2).toString(), weight: '', reps: '' },
+          ],
+          isCustom: true
+        };
+        setExercises(prev => [...prev, newEx]);
+
+        // Reset form
+        setNewExerciseName('');
+        setNewExerciseMuscle('Chest');
+        setSelectedSubMuscles([]);
+        setSelectedSecondaryMuscles({});
+        setExpandedSecondaryGroups([]);
+        setExerciseModalTab('list');
+      }
+    } catch (err) {
+      console.error(err);
+      Alert.alert('Błąd', 'Nie udało się utworzyć ćwiczenia');
+    } finally {
+      setCreatingExercise(false);
+    }
+  };
+
+  const handleDeleteExercise = async (id, name) => {
+    Alert.alert(
+      'Usuń ćwiczenie',
+      `Czy na pewno chcesz usunąć ćwiczenie "${name}"?`,
+      [
+        { text: 'Anuluj', style: 'cancel' },
+        {
+          text: 'Usuń',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.deleteExercise(id);
+              // Remove from list
+              setAvailableExercises(prev => prev.filter(e => e._id !== id));
+            } catch (err) {
+              console.error(err);
+              Alert.alert('Błąd', 'Nie udało się usunąć ćwiczenia');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const addExerciseFromBase = async (exerciseDef) => {
+    // Check history
+    const timestamp = Date.now();
+    let initialSets = [
+      { id: `${timestamp}_0`, weight: '', reps: '' },
+      { id: `${timestamp}_1`, weight: '', reps: '' },
+      { id: `${timestamp}_2`, weight: '', reps: '' },
+    ];
+    let initialNumSets = 3;
+
+    try {
+      const history = await api.getLastExerciseLog(exerciseDef.name);
+      if (history && history.sets && history.sets.length > 0) {
+        // Map history sets to new objects with unique IDs
+        // Map history sets to new objects with unique IDs
+        initialSets = history.sets.map((s, index) => ({
+          id: `${timestamp}_hist_${index}`,
+          weight: s.weight || '',
+          reps: s.reps || '',
+        }));
+        initialNumSets = history.sets.length;
+
+        // Optional: Notify user
+        // Alert.alert('Info', `Wczytano ostatnie wyniki dla ${exerciseDef.name}`);
+      }
+    } catch (e) {
+      console.log('Failed to load history', e);
+    }
+
+    const newExercise = {
+      localId: `${timestamp}_ex`,
+      name: exerciseDef.name,
+      muscleGroup: exerciseDef.muscleGroup,
+      numSets: initialNumSets,
+      sets: initialSets,
+      isCustom: exerciseDef.isCustom
+    };
+
+    setExercises([...exercises, newExercise]);
+    setShowExerciseModal(false);
   };
 
   const removeExercise = (id) => {
@@ -117,15 +396,26 @@ const WorkoutEditorScreen = ({ navigation, route }) => {
   };
 
   const updateNumSets = (exerciseId, numSets) => {
+    // Allow empty string to let user clear the input
+    if (numSets === '') {
+      setExercises(
+        exercises.map((ex) =>
+          ex.id === exerciseId ? { ...ex, numSets: '' } : ex
+        )
+      );
+      return;
+    }
+
     const num = parseInt(numSets) || 0;
-    if (num < 1 || num > 10) return; // Limit 1-10 sets
+    if (num < 0 || num > 99) return; // Relaxed limit to 99
 
     setExercises(
       exercises.map((ex) => {
         if (ex.id === exerciseId) {
           const newSets = [];
           for (let i = 0; i < num; i++) {
-            newSets.push(ex.sets[i] || { id: i + 1, weight: '', reps: '' });
+            // Preserve existing sets if available
+            newSets.push(ex.sets[i] || { id: Date.now() + i, weight: '', reps: '' });
           }
           return { ...ex, numSets: num, sets: newSets };
         }
@@ -164,12 +454,12 @@ const WorkoutEditorScreen = ({ navigation, route }) => {
     try {
       const workoutData = {
         name: workoutName,
-        date: new Date().toISOString().split('T')[0],
-        time: new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }),
-        duration: formatTime(elapsedTime), // Save actual duration
+        date: isEditing ? existingWorkout.date : new Date().toISOString().split('T')[0],
+        time: isEditing ? existingWorkout.time : new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }),
+        duration: formatTime(elapsedTime),
         exercises: exercises.map(ex => ({
           name: ex.name,
-          numSets: ex.numSets,
+          numSets: parseInt(ex.numSets) || ex.sets.length,
           sets: ex.sets.map(s => ({ weight: s.weight, reps: s.reps }))
         }))
       };
@@ -182,8 +472,8 @@ const WorkoutEditorScreen = ({ navigation, route }) => {
       stopTimer(); // Stop timer when saving
       navigation.goBack();
     } catch (e) {
-      console.error(e);
-      Alert.alert('Błąd', 'Nie udało się zapisał treningu');
+      console.error('Workout save error:', e);
+      Alert.alert('Błąd', 'Nie udało się zapisać treningu');
     }
   };
 
@@ -198,24 +488,28 @@ const WorkoutEditorScreen = ({ navigation, route }) => {
         </Text>
 
         <View style={styles.headerControls}>
-          <Text style={styles.timerText}>
-            {formatTime(elapsedTime)}
-          </Text>
+          <TouchableOpacity onPress={() => setShowTimeModal(true)}>
+            <Text style={styles.timerText}>
+              {formatTime(elapsedTime)}
+            </Text>
+          </TouchableOpacity>
 
-          {!timerRunning ? (
-            <TouchableOpacity
-              style={styles.startButton}
-              onPress={startTimer}
-            >
-              <Text style={styles.startButtonText}>▶</Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              style={styles.stopButton}
-              onPress={stopTimer}
-            >
-              <Text style={styles.stopButtonText}>⏸</Text>
-            </TouchableOpacity>
+          {!isEditing && (
+            !timerRunning ? (
+              <TouchableOpacity
+                style={styles.startButton}
+                onPress={startTimer}
+              >
+                <Text style={styles.startButtonText}>▶</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.stopButton}
+                onPress={stopTimer}
+              >
+                <Text style={styles.stopButtonText}>⏸</Text>
+              </TouchableOpacity>
+            )
           )}
 
           <TouchableOpacity
@@ -282,12 +576,20 @@ const WorkoutEditorScreen = ({ navigation, route }) => {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.label}>ĆWICZENIA ({exercises.length})</Text>
-            <TouchableOpacity
-              style={styles.addExerciseButton}
-              onPress={addExercise}
-            >
-              <Text style={styles.addExerciseText}>+ Dodaj</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <TouchableOpacity
+                style={styles.addExerciseButton}
+                onPress={() => setShowExerciseModal(true)}
+              >
+                <Text style={styles.addExerciseText}>+ Z Bazy</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.addExerciseButton}
+                onPress={openCreateModal}
+              >
+                <Text style={styles.addExerciseText}>+ Własne</Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           {exercises.map((exercise, index) => (
@@ -424,6 +726,301 @@ const WorkoutEditorScreen = ({ navigation, route }) => {
             <TouchableOpacity
               style={styles.modalCancelButton}
               onPress={() => setShowTemplateModal(false)}
+            >
+              <Text style={styles.modalCancelText}>Anuluj</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Exercise Picker Modal */}
+      <Modal
+        visible={showExerciseModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowExerciseModal(false)}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Wybierz ćwiczenie</Text>
+            <TouchableOpacity onPress={() => setShowExerciseModal(false)}>
+              <Text style={styles.closeModalText}>Zamknij</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Tabs */}
+          <View style={styles.modalTabs}>
+            <TouchableOpacity
+              style={[styles.modalTab, exerciseModalTab === 'list' && styles.modalTabActive]}
+              onPress={() => setExerciseModalTab('list')}
+            >
+              <Text style={[styles.modalTabText, exerciseModalTab === 'list' && styles.modalTabTextActive]}>
+                Lista
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modalTab, exerciseModalTab === 'create' && styles.modalTabActive]}
+              onPress={() => setExerciseModalTab('create')}
+            >
+              <Text style={[styles.modalTabText, exerciseModalTab === 'create' && styles.modalTabTextActive]}>
+                Stwórz nowe
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {exerciseModalTab === 'list' ? (
+            <>
+              {/* Muscle Group Filters */}
+              <View style={{ marginBottom: 10 }}>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ paddingHorizontal: 20, gap: 8 }}
+                >
+                  {[
+                    { value: 'all', label: 'Wszystkie' },
+                    { value: 'Chest', label: 'Klatka' },
+                    { value: 'Back', label: 'Plecy' },
+                    { value: 'Legs', label: 'Nogi' },
+                    { value: 'Shoulders', label: 'Barki' },
+                    { value: 'Arms', label: 'Ramiona' },
+                    { value: 'Core', label: 'Brzuch' },
+                    { value: 'Full Body', label: 'FBW' },
+                  ].map((filter) => (
+                    <TouchableOpacity
+                      key={filter.value}
+                      style={[
+                        styles.filterChip,
+                        exerciseFilter === filter.value && styles.filterChipActive
+                      ]}
+                      onPress={() => setExerciseFilter(filter.value)}
+                    >
+                      <Text style={[
+                        styles.filterChipText,
+                        exerciseFilter === filter.value && styles.filterChipTextActive
+                      ]}>
+                        {filter.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+
+              {loadingExercises ? (
+                <ActivityIndicator size="large" color="#3B82F6" style={{ marginTop: 20 }} />
+              ) : (
+                <FlatList
+                  data={availableExercises.filter(ex => exerciseFilter === 'all' || ex.muscleGroup === exerciseFilter)}
+                  keyExtractor={(item) => item._id}
+                  contentContainerStyle={{ padding: 20 }}
+                  renderItem={({ item }) => (
+                    <View style={styles.exerciseOptionRow}>
+                      <TouchableOpacity
+                        style={styles.exerciseOption}
+                        onPress={() => addExerciseFromBase(item)}
+                      >
+                        <View>
+                          <Text style={styles.exerciseOptionName}>{item.name}</Text>
+                          <Text style={styles.exerciseOptionDetail}>{item.muscleGroup} • {item.equipment}</Text>
+                        </View>
+                        <Text style={styles.addIcon}>+</Text>
+                      </TouchableOpacity>
+
+                      {/* Delete button for custom exercises */}
+                      {item.isCustom && (
+                        <TouchableOpacity
+                          style={styles.deleteExerciseButton}
+                          onPress={() => handleDeleteExercise(item._id, item.name)}
+                        >
+                          <Text style={styles.deleteExerciseIcon}>🗑️</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  )}
+                />
+              )}
+            </>
+          ) : (
+            <ScrollView contentContainerStyle={{ padding: 20 }}>
+              <Text style={styles.label}>NAZWA ĆWICZENIA</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="np. Wyciskanie hantli"
+                placeholderTextColor="#6B7280"
+                value={newExerciseName}
+                onChangeText={setNewExerciseName}
+              />
+
+              <Text style={[styles.label, { marginTop: 20 }]}>PARTIA MIĘŚNIOWA</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+                {Object.keys(MUSCLE_GROUPS).map((key) => (
+                  <TouchableOpacity
+                    key={key}
+                    style={[
+                      styles.filterChip,
+                      newExerciseMuscle === key && styles.filterChipActive
+                    ]}
+                    onPress={() => {
+                      setNewExerciseMuscle(key);
+                      setSelectedSubMuscles([]); // Reset sub-muscles on change
+                    }}
+                  >
+                    <Text style={[
+                      styles.filterChipText,
+                      newExerciseMuscle === key && styles.filterChipTextActive
+                    ]}>
+                      {MUSCLE_GROUPS[key].label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Sub-Muscles Section */}
+              {MUSCLE_GROUPS[newExerciseMuscle]?.subMuscles?.length > 0 && (
+                <>
+                  <Text style={[styles.label, { marginTop: 20 }]}>ANGAŻOWANE CZĘŚCI (WYMAGANE)</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+                    {MUSCLE_GROUPS[newExerciseMuscle].subMuscles.map((sub) => (
+                      <TouchableOpacity
+                        key={sub.id}
+                        style={[
+                          styles.filterChip,
+                          { backgroundColor: '#0F172A', borderColor: '#475569' },
+                          selectedSubMuscles.includes(sub.id) && { backgroundColor: '#2ca4bf', borderColor: '#2ca4bf' }
+                        ]}
+                        onPress={() => toggleSubMuscle(sub.id)}
+                      >
+                        <Text style={[
+                          styles.filterChipText,
+                          selectedSubMuscles.includes(sub.id) && { color: '#FFF' }
+                        ]}>
+                          {sub.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </>
+              )}
+
+              {/* Secondary Muscle Groups Section */}
+              <Text style={[styles.label, { marginTop: 20 }]}>DODATKOWE MIĘŚNIE (OPCJONALNE)</Text>
+              <Text style={{ color: '#64748B', fontSize: 12, marginBottom: 10 }}>
+                Rozwiń grupę i zaznacz konkretne części wspomagające
+              </Text>
+              {Object.keys(MUSCLE_GROUPS)
+                .filter(key => key !== newExerciseMuscle && key !== 'Full Body') // Exclude primary and Full Body
+                .map((groupKey) => {
+                  const groupData = MUSCLE_GROUPS[groupKey];
+                  const isExpanded = expandedSecondaryGroups.includes(groupKey);
+                  const selectedCount = (selectedSecondaryMuscles[groupKey] || []).length;
+
+                  return (
+                    <View key={groupKey} style={{ marginBottom: 12 }}>
+                      {/* Group Header */}
+                      <TouchableOpacity
+                        style={[
+                          styles.filterChip,
+                          { backgroundColor: '#1E293B', borderColor: '#475569', width: '100%', flexDirection: 'row', justifyContent: 'space-between' },
+                          isExpanded && { borderColor: '#8B5CF6' }
+                        ]}
+                        onPress={() => toggleSecondaryGroup(groupKey)}
+                      >
+                        <Text style={[styles.filterChipText]}>
+                          {groupData.label} {selectedCount > 0 && `(${selectedCount})`}
+                        </Text>
+                        <Text style={{ color: '#8B5CF6', fontSize: 16 }}>{isExpanded ? '▼' : '▶'}</Text>
+                      </TouchableOpacity>
+
+                      {/* Sub-muscles (if expanded) */}
+                      {isExpanded && groupData.subMuscles && groupData.subMuscles.length > 0 && (
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8, paddingLeft: 10 }}>
+                          {groupData.subMuscles.map((sub) => {
+                            const isSelected = (selectedSecondaryMuscles[groupKey] || []).includes(sub.id);
+                            return (
+                              <TouchableOpacity
+                                key={sub.id}
+                                style={[
+                                  styles.filterChip,
+                                  { backgroundColor: '#0F172A', borderColor: '#475569' },
+                                  isSelected && { backgroundColor: '#8B5CF6', borderColor: '#8B5CF6' }
+                                ]}
+                                onPress={() => toggleSecondarySubMuscle(groupKey, sub.id)}
+                              >
+                                <Text style={[
+                                  styles.filterChipText,
+                                  isSelected && { color: '#FFF' }
+                                ]}>
+                                  {sub.label}
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      )}
+                    </View>
+                  );
+                })}
+
+              <TouchableOpacity
+                style={[styles.saveButton, { marginTop: 40 }, creatingExercise && { opacity: 0.7 }]}
+                onPress={handleCreateExercise}
+                disabled={creatingExercise}
+              >
+                {creatingExercise ? (
+                  <ActivityIndicator color="#FFF" />
+                ) : (
+                  <Text style={styles.saveButtonText}>Stwórz i Dodaj</Text>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
+          )}
+        </SafeAreaView>
+      </Modal>
+
+      {/* Manual Time Input Modal */}
+      <Modal
+        visible={showTimeModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowTimeModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Ustaw czas</Text>
+            <View style={{ flexDirection: 'row', gap: 10, justifyContent: 'center', marginBottom: 20 }}>
+              <View>
+                <Text style={styles.label}>Minuty</Text>
+                <TextInput
+                  style={[styles.input, { width: 80, textAlign: 'center' }]}
+                  placeholder="00"
+                  placeholderTextColor="#6B7280"
+                  keyboardType="numeric"
+                  value={manualMinutes}
+                  onChangeText={setManualMinutes}
+                />
+              </View>
+              <Text style={{ fontSize: 30, color: '#FFF', alignSelf: 'center', paddingTop: 15 }}>:</Text>
+              <View>
+                <Text style={styles.label}>Sekundy</Text>
+                <TextInput
+                  style={[styles.input, { width: 80, textAlign: 'center' }]}
+                  placeholder="00"
+                  placeholderTextColor="#6B7280"
+                  keyboardType="numeric"
+                  value={manualSeconds}
+                  onChangeText={setManualSeconds}
+                />
+              </View>
+            </View>
+            <TouchableOpacity
+              style={styles.saveButton}
+              onPress={handleManualTimeUpdate}
+            >
+              <Text style={styles.saveButtonText}>Zatwierdź</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.modalCancelButton}
+              onPress={() => setShowTimeModal(false)}
             >
               <Text style={styles.modalCancelText}>Anuluj</Text>
             </TouchableOpacity>
@@ -788,6 +1385,103 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
   },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#0F172A',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#334155'
+  },
+  closeModalText: {
+    color: '#3B82F6',
+    fontSize: 16
+  },
+  exerciseOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#334155',
+    flex: 1, // Take remaining space
+  },
+  exerciseOptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingRight: 10,
+  },
+  deleteExerciseButton: {
+    padding: 10,
+    marginLeft: 5,
+  },
+  deleteExerciseIcon: {
+    fontSize: 18,
+  },
+  exerciseOptionName: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4
+  },
+  exerciseOptionDetail: {
+    color: '#94A3B8',
+    fontSize: 13
+  },
+  modalTabs: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    marginBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#334155'
+  },
+  modalTab: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  modalTabActive: {
+    borderBottomColor: '#3B82F6',
+  },
+  modalTabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#94A3B8',
+  },
+  modalTabTextActive: {
+    color: '#3B82F6',
+  },
+  addIcon: {
+    color: '#3B82F6',
+    fontSize: 24,
+    fontWeight: 'bold'
+  },
+  filterChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    backgroundColor: '#1E293B',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  filterChipActive: {
+    backgroundColor: '#3B82F6',
+    borderColor: '#3B82F6',
+  },
+  filterChipText: {
+    color: '#94A3B8',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  filterChipTextActive: {
+    color: '#FFFFFF',
+  }
 });
 
 export default WorkoutEditorScreen;

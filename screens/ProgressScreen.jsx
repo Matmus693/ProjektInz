@@ -199,6 +199,33 @@ const ProgressScreen = ({ navigation }) => {
   };
   const weightChange = getWeightChange();
 
+  // Helper for measurement diffs
+  const getMeasurementDiff = (key) => {
+    const history = progressData?.measurementsHistory || [];
+    if (history.length < 2) return 0;
+    // index 0 is latest (we sorted in backend), index 1 is previous
+    const diff = (history[0][key] || 0) - (history[1][key] || 0);
+    return diff % 1 !== 0 ? diff.toFixed(1) : diff; // integer or 1 decimal
+  };
+
+  const renderDiff = (diff, unit = '', reverseColor = false) => {
+    const val = parseFloat(diff);
+    if (val === 0) return null;
+    // Default: Green for positive (gains), Red for negative (loss)
+    // If reverseColor is true: Green for negative (fat loss), Red for positive
+    const isPositive = val > 0;
+    let color = isPositive ? '#10B981' : '#EF4444';
+    if (reverseColor) {
+      color = isPositive ? '#EF4444' : '#10B981';
+    }
+
+    return (
+      <Text style={{ color, fontSize: 12, fontWeight: '600', marginLeft: 6 }}>
+        {isPositive ? '+' : ''}{diff}{unit}
+      </Text>
+    );
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={[styles.container, styles.center]}>
@@ -303,21 +330,33 @@ const ProgressScreen = ({ navigation }) => {
             <View style={styles.measurementRow}>
               <View style={styles.measurementItem}>
                 <Text style={styles.measurementLabel}>Klatka</Text>
-                <Text style={styles.measurementValue}>{progressData?.measurements?.chest || '-'} cm</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
+                  <Text style={styles.measurementValue}>{progressData?.measurements?.chest || '-'} cm</Text>
+                  {renderDiff(getMeasurementDiff('chest'), 'cm')}
+                </View>
               </View>
               <View style={styles.measurementItem}>
                 <Text style={styles.measurementLabel}>Talia</Text>
-                <Text style={styles.measurementValue}>{progressData?.measurements?.waist || '-'} cm</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
+                  <Text style={styles.measurementValue}>{progressData?.measurements?.waist || '-'} cm</Text>
+                  {renderDiff(getMeasurementDiff('waist'), 'cm', true)}
+                </View>
               </View>
             </View>
             <View style={styles.measurementRow}>
               <View style={styles.measurementItem}>
                 <Text style={styles.measurementLabel}>Biceps</Text>
-                <Text style={styles.measurementValue}>{progressData?.measurements?.biceps || '-'} cm</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
+                  <Text style={styles.measurementValue}>{progressData?.measurements?.biceps || '-'} cm</Text>
+                  {renderDiff(getMeasurementDiff('biceps'), 'cm')}
+                </View>
               </View>
               <View style={styles.measurementItem}>
                 <Text style={styles.measurementLabel}>Uda</Text>
-                <Text style={styles.measurementValue}>{progressData?.measurements?.thighs || '-'} cm</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
+                  <Text style={styles.measurementValue}>{progressData?.measurements?.thighs || '-'} cm</Text>
+                  {renderDiff(getMeasurementDiff('thighs'), 'cm')}
+                </View>
               </View>
             </View>
             <Text style={styles.measurementUpdate}>
@@ -332,22 +371,45 @@ const ProgressScreen = ({ navigation }) => {
 
           <View style={styles.statsGrid}>
             <View style={styles.statCard}>
-              <Text style={styles.statValue}>{stats?.totalWorkouts || 0}</Text>
+              <Text style={styles.statValue}>{stats?.current?.totalWorkouts || 0}</Text>
               <Text style={styles.statLabel}>Treningów</Text>
+              {stats?.previous && (
+                <Text style={{ fontSize: 10, color: stats.current.totalWorkouts >= stats.previous.totalWorkouts ? '#10B981' : '#EF4444' }}>
+                  {stats.current.totalWorkouts - stats.previous.totalWorkouts > 0 ? '+' : ''}
+                  {stats.current.totalWorkouts - stats.previous.totalWorkouts}
+                </Text>
+              )}
             </View>
             <View style={styles.statCard}>
               <Text style={styles.statValue}>
-                {((stats?.totalVolume || 0) / 1000).toFixed(1)}t
+                {Math.round((stats?.current?.totalVolume || 0) / 1000)}t
               </Text>
               <Text style={styles.statLabel}>Objętość</Text>
+              {stats?.previous && (
+                <Text style={{ fontSize: 10, color: stats.current.totalVolume >= stats.previous.totalVolume ? '#10B981' : '#EF4444' }}>
+                  {((stats.current.totalVolume - stats.previous.totalVolume) / 1000).toFixed(1) > 0 ? '+' : ''}
+                  {((stats.current.totalVolume - stats.previous.totalVolume) / 1000).toFixed(1)}t
+                </Text>
+              )}
             </View>
             <View style={styles.statCard}>
-              <Text style={styles.statValue}>{stats?.totalSets || 0}</Text>
+              <Text style={styles.statValue}>{stats?.current?.totalSets || 0}</Text>
               <Text style={styles.statLabel}>Serii</Text>
+              {stats?.previous && (
+                <Text style={{ fontSize: 10, color: stats.current.totalSets >= stats.previous.totalSets ? '#10B981' : '#EF4444' }}>
+                  {stats.current.totalSets - stats.previous.totalSets > 0 ? '+' : ''}
+                  {stats.current.totalSets - stats.previous.totalSets}
+                </Text>
+              )}
             </View>
             <View style={styles.statCard}>
-              <Text style={styles.statValue}>{stats?.avgWorkoutDuration || 0} min</Text>
+              <Text style={styles.statValue}>{stats?.current?.avgWorkoutDuration || 0} min</Text>
               <Text style={styles.statLabel}>Śr. czas</Text>
+              {stats?.previous && (
+                <Text style={{ fontSize: 10, color: '#94A3B8' }}>
+                  vs {stats.previous.avgWorkoutDuration}m
+                </Text>
+              )}
             </View>
           </View>
         </View>
@@ -562,7 +624,6 @@ const ProgressScreen = ({ navigation }) => {
                 { value: 'Shoulders', label: 'Barki' },
                 { value: 'Arms', label: 'Ramiona' },
                 { value: 'Core', label: 'Brzuch' },
-                { value: 'Full Body', label: 'FBW' },
               ].map((filter) => (
                 <TouchableOpacity
                   key={filter.value}

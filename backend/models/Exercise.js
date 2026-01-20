@@ -45,7 +45,8 @@ const exerciseSchema = new mongoose.Schema({
         obliques: { type: Number, default: 0, min: 0, max: 100 }
     },
     secondaryMuscles: [{
-        type: String,
+        group: { type: String }, // e.g., "Arms"
+        subMuscles: [{ type: String }] // e.g., ["triceps", "biceps"]
     }],
     type: {
         type: String,
@@ -61,16 +62,14 @@ const exerciseSchema = new mongoose.Schema({
         type: String,
         default: 'Bodyweight',
     },
-    difficulty: {
-        type: Number,
-        min: 1,
-        max: 5,
-        default: 3,
-    },
     description: {
         type: String,
         default: '',
     },
+    isCustom: {
+        type: Boolean,
+        default: false,
+    }
 }, {
     timestamps: true,
 });

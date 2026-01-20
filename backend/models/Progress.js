@@ -21,6 +21,13 @@ const progressSchema = new mongoose.Schema({
     thighs: Number,
     lastUpdate: String,
   },
+  measurementsHistory: [{
+    date: { type: Date, default: Date.now },
+    chest: Number,
+    waist: Number,
+    biceps: Number,
+    thighs: Number
+  }],
   targetWeight: {
     type: Number,
     default: null,

@@ -30,8 +30,13 @@ const HomeScreen = ({ navigation }) => {
       setLoading(true);
 
       // 1. Fetch Monthly Stats
+      // 1. Fetch Monthly Stats
       const stats = await api.getStats();
-      if (stats) setMonthlyStats(stats);
+      if (stats && stats.current) {
+        setMonthlyStats(stats.current);
+      } else if (stats) {
+        setMonthlyStats(stats);
+      }
 
       // 2. Fetch Last Workout
       const workouts = await api.getWorkouts();
@@ -42,7 +47,7 @@ const HomeScreen = ({ navigation }) => {
       }
 
       // 3. Fetch Insight
-      const insightData = await api.getInsight(TEMP_USER_ID);
+      const insightData = await api.getInsight();
       if (insightData) {
         setInsight({
           message: insightData.reason || `Sugerowany trening: ${insightData.type}`,
@@ -133,7 +138,7 @@ const HomeScreen = ({ navigation }) => {
           {lastWorkout ? (
             <View style={styles.workoutCard}>
               <View style={styles.workoutHeader}>
-                <View>
+                <View style={{ flex: 1, marginRight: 12 }}>
                   <Text style={styles.workoutName}>{lastWorkout.name}</Text>
                   <Text style={styles.workoutDate}>
                     {new Date(lastWorkout.date).toLocaleDateString('pl-PL', {

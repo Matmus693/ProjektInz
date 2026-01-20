@@ -75,9 +75,9 @@ const WorkoutGeneratorScreen = ({ navigation }) => {
     const trainingTypes = [
         { key: 'CUSTOM', label: 'Własny wybór' },
         { key: 'FBW', label: 'FBW (Full Body)' },
-        { key: 'PPL_PUSH', label: 'PPL - Push' },
-        { key: 'PPL_PULL', label: 'PPL - Pull' },
-        { key: 'PPL_LEGS', label: 'PPL - Legs' }
+        { key: 'PPL_PUSH', label: 'Push' },
+        { key: 'PPL_PULL', label: 'Pull' },
+        { key: 'PPL_LEGS', label: 'Legs' }
     ];
 
     const toggleMuscle = (muscleKey) => {
@@ -152,7 +152,7 @@ const WorkoutGeneratorScreen = ({ navigation }) => {
                 >
                     <Text style={styles.backIcon}>←</Text>
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Generator Treningów</Text>
+                <Text style={styles.headerTitle}>Generator Planów</Text>
                 <View style={{ width: 40 }} />
             </View>
 
@@ -165,7 +165,7 @@ const WorkoutGeneratorScreen = ({ navigation }) => {
                     <>
                         {/* Training Type Selection */}
                         <View style={styles.section}>
-                            <Text style={styles.sectionTitle}>TYP TRENINGU</Text>
+                            <Text style={styles.sectionTitle}>TYP PLANU</Text>
                             <View style={styles.typeGrid}>
                                 {trainingTypes.map(type => (
                                     <TouchableOpacity
@@ -280,12 +280,7 @@ const WorkoutGeneratorScreen = ({ navigation }) => {
                                         </View>
                                     </View>
                                     <Text style={styles.exerciseDescription}>{exercise.description}</Text>
-                                    <View style={styles.exerciseDetails}>
-                                        <Text style={styles.exerciseDetail}>⚙️ {exercise.equipment}</Text>
-                                        <Text style={styles.exerciseDetail}>
-                                            💪 Poziom {exercise.difficulty}/5
-                                        </Text>
-                                    </View>
+                                    <Text style={styles.exerciseDetail}>⚙️ {exercise.equipment}</Text>
                                 </View>
                             ))}
                         </View>
@@ -300,10 +295,51 @@ const WorkoutGeneratorScreen = ({ navigation }) => {
                             </TouchableOpacity>
                             <TouchableOpacity
                                 style={styles.primaryButton}
-                                onPress={() => {
-                                    // TODO: Save plan or navigate to workout editor
-                                    Alert.alert('Sukces', 'Plan zapisany!');
-                                    navigation.goBack();
+                                onPress={async () => {
+                                    try {
+                                        setGenerating(true);
+
+                                        // Generate unique name with timestamp
+                                        const timestamp = new Date().toLocaleString('pl-PL', {
+                                            day: '2-digit',
+                                            month: '2-digit',
+                                            hour: '2-digit',
+                                            minute: '2-digit'
+                                        });
+
+                                        let planName = 'Plan AGP';
+                                        if (trainingType === 'FBW') {
+                                            planName = 'Plan FBW';
+                                        } else if (trainingType === 'PPL_PUSH') {
+                                            planName = 'Plan Push';
+                                        } else if (trainingType === 'PPL_PULL') {
+                                            planName = 'Plan Pull';
+                                        } else if (trainingType === 'PPL_LEGS') {
+                                            planName = 'Plan Legs';
+                                        }
+                                        planName += ` (${timestamp})`;
+
+                                        const planData = {
+                                            name: planName,
+                                            type: 'Szablon',
+                                            description: `Automatycznie wygenerowany`,
+                                            exercises: generatedPlan.exercises.map(ex => ({
+                                                name: ex.name,
+                                                numSets: 3,
+                                                sets: []
+                                            })),
+                                            isTemplate: true
+                                        };
+
+                                        await api.createWorkoutPlan(planData);
+                                        Alert.alert('Sukces', 'Plan został zapisany w Twoich planach!');
+                                        navigation.goBack();
+                                    } catch (e) {
+                                        console.error(e);
+                                        Alert.alert('Błąd', 'Nie udało się zapisać planu');
+                                    } finally {
+                                        setGenerating(false);
+                                    }
                                 }}
                             >
                                 <Text style={styles.primaryButtonText}>Zapisz Plan</Text>

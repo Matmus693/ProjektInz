@@ -9,17 +9,18 @@ const TRAINING_TYPES = {
 };
 
 // Safety constraints
+// Safety constraints
 const LIMITS = {
-    MAX_ENGAGEMENT: 250,
-    MIN_ENGAGEMENT: 150,
+    MAX_ENGAGEMENT: 600,
+    MIN_ENGAGEMENT: 50,
     REST_PERIOD_HOURS: 48
 };
 
 // Antagonist muscle balance ratios
 const ANTAGONIST_RATIOS = {
-    chest_to_back: { min: 0.8, max: 1.2 },
-    front_delts_to_rear_delts: { min: 0.7, max: 1.4 },
-    quads_to_hamstrings: { min: 0.6, max: 1.7 }
+    chest_to_back: { min: 0.5, max: 2.0 },
+    front_delts_to_rear_delts: { min: 0.4, max: 2.5 },
+    quads_to_hamstrings: { min: 0.4, max: 2.5 }
 };
 
 /**
@@ -161,11 +162,6 @@ function scoreExercise(exercise, targetMuscles) {
         }
     });
 
-    // Bonus for appropriate difficulty (not too easy, not too hard)
-    if (exercise.difficulty >= 2 && exercise.difficulty <= 4) {
-        score += 10;
-    }
-
     return score;
 }
 
@@ -181,12 +177,14 @@ async function generateOptimalPlan(targetMuscles, trainingType = 'CUSTOM', maxEx
         // Get all exercises from database
         const allExercises = await Exercise.find({});
 
-        // Filter exercises that have any engagement in target muscles
+        // Filter exercises where target muscles have significant engagement (50%+)
+        const PRIMARY_THRESHOLD = 50;
         let candidates = allExercises.filter(exercise => {
             if (!exercise.muscleEngagement) return false;
 
+            // Check if any target muscle has significant engagement
             return targetMuscles.some(muscle => {
-                return (exercise.muscleEngagement[muscle] || 0) > 0;
+                return (exercise.muscleEngagement[muscle] || 0) >= PRIMARY_THRESHOLD;
             });
         });
 

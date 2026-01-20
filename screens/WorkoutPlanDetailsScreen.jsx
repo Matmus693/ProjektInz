@@ -82,7 +82,7 @@ const WorkoutPlanDetailsScreen = ({ navigation, route }) => {
           <Text style={styles.sectionTitle}>ĆWICZENIA</Text>
 
           {planExercises.map((exercise, index) => (
-            <View key={exercise.id} style={styles.exerciseCard}>
+            <View key={exercise.id || exercise._id || `ex-${index}`} style={styles.exerciseCard}>
               <View style={styles.exerciseHeader}>
                 <Text style={styles.exerciseNumber}>{index + 1}</Text>
                 <Text style={styles.exerciseName}>{exercise.name}</Text>
@@ -90,7 +90,7 @@ const WorkoutPlanDetailsScreen = ({ navigation, route }) => {
 
               <View style={styles.setsContainer}>
                 {exercise.sets && exercise.sets.map((set, setIndex) => (
-                  <View key={set.id} style={styles.setRow}>
+                  <View key={set.id || set._id || `set-${index}-${setIndex}`} style={styles.setRow}>
                     <Text style={styles.setLabel}>Seria {setIndex + 1}</Text>
                     <View style={styles.setValues}>
                       {set.weight && (

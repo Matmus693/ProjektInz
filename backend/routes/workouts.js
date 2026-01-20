@@ -1,5 +1,6 @@
 const express = require('express');
 const Workout = require('../models/Workout');
+const WorkoutPlan = require('../models/WorkoutPlan');
 const auth = require('../middleware/auth');
 const router = express.Router();
 
@@ -11,6 +12,34 @@ router.get('/', auth, async (req, res) => {
     res.json(workouts);
   } catch (error) {
     console.error('Get workouts error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+router.get('/history/last', auth, async (req, res) => {
+  try {
+    const { exerciseName } = req.query;
+    if (!exerciseName) {
+      return res.status(400).json({ message: 'Missing exerciseName' });
+    }
+
+    // Find the most recent workout containing this exercise
+    const workout = await Workout.findOne({
+      userId: req.user._id,
+      'exercises.name': exerciseName
+    }).sort({ date: -1, createdAt: -1 });
+
+    if (!workout) {
+      // No history is a valid state, not an error
+      return res.json(null);
+    }
+
+    // Extract the specific exercise data
+    const exerciseData = workout.exercises.find(e => e.name === exerciseName);
+
+    // Return relevant data (sets, notes, etc.)
+    res.json(exerciseData || null);
+  } catch (error) {
+    console.error('History lookup error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -44,6 +73,13 @@ router.post('/', auth, async (req, res) => {
 
     const workout = new Workout(workoutData);
     await workout.save();
+
+    // Cleanup temporary plans after workout is saved
+    // These are one-time plans created by the insights system
+    await WorkoutPlan.deleteMany({
+      userId: req.user._id,
+      temporary: true
+    });
 
     res.status(201).json(workout);
   } catch (error) {

@@ -36,7 +36,7 @@ const WorkoutPlansScreen = ({ navigation }) => {
 
       // 2. Fetch Insights
       try {
-        const insightData = await api.getInsight(TEMP_USER_ID);
+        const insightData = await api.getInsight();
         if (insightData) {
           setSuggestion(insightData);
         }
@@ -100,7 +100,7 @@ const WorkoutPlansScreen = ({ navigation }) => {
             style={styles.generateButton}
             onPress={() => navigation.navigate('WorkoutGenerator')}
           >
-            <Text style={styles.generateButtonText}>🤖 AI</Text>
+            <Text style={styles.generateButtonText}>📊 AGP</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.addButton}
@@ -134,7 +134,7 @@ const WorkoutPlansScreen = ({ navigation }) => {
                 >
                   <Text style={styles.suggestionActionText}>Zobacz Plan: {suggestion.suggestedPlan.name}</Text>
                 </TouchableOpacity>
-              ) : (
+              ) : suggestion.type !== 'Odpoczynek' && (
                 <TouchableOpacity
                   style={styles.suggestionAction}
                   onPress={() => navigation.navigate('WorkoutPlanEditor', { type: suggestion.type })}

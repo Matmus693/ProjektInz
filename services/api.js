@@ -8,7 +8,7 @@ const getApiBaseUrl = () => {
   }
 
   // Twoje lokalne IP
-  const LOCAL_IP = '192.168.55.104';
+  const LOCAL_IP = '192.168.55.105';
 
   // Dla wszystkich platform w development uÅ¼ywamy lokalnego IP
   return `http://${LOCAL_IP}:5000/api`;
@@ -86,8 +86,10 @@ class ApiService {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
+    const fullUrl = `${this.baseURL}${endpoint}`;
+
     try {
-      const response = await fetch(`${this.baseURL}${endpoint}`, {
+      const response = await fetch(fullUrl, {
         ...options,
         headers,
       });
@@ -237,9 +239,43 @@ class ApiService {
     return this.request('/progress/stats');
   }
 
+  // Insights methods
+  async getInsight() {
+    return this.request('/insights/suggest');
+  }
+
   // Exercises methods
   async getExercises() {
     return this.request('/exercises');
+  }
+
+  async createExercise(exercise) {
+    return this.request('/exercises', {
+      method: 'POST',
+      body: JSON.stringify(exercise),
+    });
+  }
+
+  async deleteExercise(id) {
+    return this.request(`/exercises/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async repairExercises() {
+    return this.request('/exercises/repair', {
+      method: 'POST',
+    });
+  }
+
+  async getLastExerciseLog(exerciseName) {
+    if (!exerciseName) return null;
+    try {
+      return await this.request(`/workouts/history/last?exerciseName=${encodeURIComponent(exerciseName)}`);
+    } catch (e) {
+      if (e.status === 404) return null; // No history
+      throw e;
+    }
   }
 
   // Insight methods

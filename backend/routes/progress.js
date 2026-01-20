@@ -67,6 +67,20 @@ router.put('/measurements', auth, async (req, res) => {
       lastUpdate: new Date().toISOString().split('T')[0],
     };
 
+    // Add to history
+    if (!progress.measurementsHistory) {
+      progress.measurementsHistory = [];
+    }
+    progress.measurementsHistory.push({
+      date: new Date(),
+      chest: progress.measurements.chest,
+      waist: progress.measurements.waist,
+      biceps: progress.measurements.biceps,
+      thighs: progress.measurements.thighs
+    });
+    // Sort descending by date
+    progress.measurementsHistory.sort((a, b) => new Date(b.date) - new Date(a.date));
+
     await progress.save();
 
     res.json(progress);
@@ -154,11 +168,53 @@ router.get('/stats', auth, async (req, res) => {
 
     const avgWorkoutDuration = totalWorkouts > 0 ? Math.round(totalDuration / totalWorkouts) : 0;
 
+
+
+    // Previous Month Stats
+    const startOfPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const endOfPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+    const startOfPrevMonthStr = startOfPrevMonth.toISOString().split('T')[0];
+    const endOfPrevMonthStr = endOfPrevMonth.toISOString().split('T')[0];
+
+    const prevWorkouts = await Workout.find({
+      userId: req.user._id,
+      date: { $gte: startOfPrevMonthStr, $lte: endOfPrevMonthStr },
+    });
+
+    let prevTotalWorkouts = prevWorkouts.length;
+    let prevTotalSets = 0;
+    let prevTotalVolume = 0;
+    let prevTotalDuration = 0;
+
+    prevWorkouts.forEach(workout => {
+      workout.exercises.forEach(exercise => {
+        prevTotalSets += exercise.numSets || 0;
+        exercise.sets.forEach(set => {
+          const weight = parseFloat(set.weight || 0);
+          const reps = parseFloat(set.reps || 0);
+          prevTotalVolume += weight * reps;
+        });
+      });
+      const durationMatch = workout.duration?.match(/(\d+)/);
+      if (durationMatch) {
+        prevTotalDuration += parseInt(durationMatch[1]);
+      }
+    });
+    const prevAvgWorkoutDuration = prevTotalWorkouts > 0 ? Math.round(prevTotalDuration / prevTotalWorkouts) : 0;
+
     res.json({
-      totalWorkouts,
-      totalSets,
-      totalVolume,
-      avgWorkoutDuration,
+      current: {
+        totalWorkouts,
+        totalSets,
+        totalVolume,
+        avgWorkoutDuration,
+      },
+      previous: {
+        totalWorkouts: prevTotalWorkouts,
+        totalSets: prevTotalSets,
+        totalVolume: prevTotalVolume,
+        avgWorkoutDuration: prevAvgWorkoutDuration
+      }
     });
   } catch (error) {
     console.error('Get stats error:', error);
@@ -170,6 +226,7 @@ router.get('/stats', auth, async (req, res) => {
 router.get('/exercise/:name', auth, async (req, res) => {
   try {
     const exerciseName = req.params.name;
+
     // Find all workouts containing this exercise for the user
     const workouts = await Workout.find({
       userId: req.user._id,
@@ -183,9 +240,11 @@ router.get('/exercise/:name', auth, async (req, res) => {
       if (ex) {
         let maxWeight = 0;
         let volume = 0;
+
         ex.sets.forEach((s) => {
           const weight = parseFloat(s.weight || 0);
           const reps = parseFloat(s.reps || 0);
+
           if (weight > maxWeight) maxWeight = weight;
           volume += weight * reps;
         });
