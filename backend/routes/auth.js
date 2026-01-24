@@ -15,35 +15,44 @@ const createDefaultPlans = async (userId) => {
     {
       name: 'Push A',
       type: 'Szablon',
-      description: 'Klatka, ramiona, triceps',
+      description: 'Klatka, triceps, przednie i boczne barki',
       isActive: false,
       exercises: [
         { name: 'Bench Press', numSets: 4, sets: [] },
         { name: 'Incline DB Press', numSets: 3, sets: [] },
         { name: 'Cable Flyes', numSets: 3, sets: [] },
         { name: 'Overhead Press', numSets: 4, sets: [] },
+        { name: 'Lateral Raises', numSets: 3, sets: [] },
+        { name: 'Tricep Dips', numSets: 3, sets: [] },
+        { name: 'Overhead Tricep Extension', numSets: 3, sets: [] },
       ]
     },
     {
       name: 'Pull A',
       type: 'Szablon',
-      description: 'Plecy, biceps, martwy ciąg',
+      description: 'Plecy, biceps, tylne barki',
       isActive: false,
       exercises: [
         { name: 'Deadlift', numSets: 4, sets: [] },
         { name: 'Pull-ups', numSets: 4, sets: [] },
         { name: 'Barbell Row', numSets: 4, sets: [] },
+        { name: 'Face Pulls', numSets: 3, sets: [] },
+        { name: 'Barbell Curl', numSets: 3, sets: [] },
+        { name: 'Hammer Curl', numSets: 3, sets: [] },
       ]
     },
     {
       name: 'Legs A',
       type: 'Szablon',
-      description: 'Nogi, pośladki, łydki',
+      description: 'Nogi, pośladki, łydki, core',
       isActive: false,
       exercises: [
         { name: 'Squat', numSets: 4, sets: [] },
         { name: 'Romanian Deadlift', numSets: 4, sets: [] },
         { name: 'Leg Press', numSets: 3, sets: [] },
+        { name: 'Leg Curl', numSets: 3, sets: [] },
+        { name: 'Calf Raises', numSets: 4, sets: [] },
+        { name: 'Plank', numSets: 3, sets: [] },
       ]
     },
     {
@@ -55,6 +64,7 @@ const createDefaultPlans = async (userId) => {
         { name: 'Squat', numSets: 4, sets: [] },
         { name: 'Bench Press', numSets: 4, sets: [] },
         { name: 'Barbell Row', numSets: 4, sets: [] },
+        { name: 'Overhead Press', numSets: 3, sets: [] },
       ]
     }
   ];

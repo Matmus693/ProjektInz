@@ -4,6 +4,27 @@ const Workout = require('../models/Workout');
 const { translateMuscleList } = require('../utils/translations');
 
 /**
+ * Volume landmarks based on Mike Israetel's research.
+ * MV = Maintenance Volume, MEV = Minimum Effective Volume,
+ * MAV = Maximum Adaptive Volume, MRV = Maximum Recoverable Volume
+ * All values are in SETS PER WEEK.
+ */
+const VOLUME_LANDMARKS = {
+    chest: { mv: 6, mev: 10, mavMin: 12, mavMax: 18, mrv: 22 },
+    back: { mv: 8, mev: 10, mavMin: 14, mavMax: 22, mrv: 26 },
+    // Barki: 3 osobne grupy
+    frontDelts: { mv: 3, mev: 5, mavMin: 8, mavMax: 14, mrv: 18 },  // Przód = Push
+    sideDelts: { mv: 3, mev: 5, mavMin: 8, mavMax: 14, mrv: 18 },   // Bok = Push
+    rearDelts: { mv: 3, mev: 5, mavMin: 6, mavMax: 10, mrv: 14 },   // Tył = Pull (wrażliwe)
+    // Ramiona osobno
+    biceps: { mv: 3, mev: 5, mavMin: 8, mavMax: 14, mrv: 18 },
+    triceps: { mv: 3, mev: 5, mavMin: 8, mavMax: 14, mrv: 18 },
+    // Inne
+    legs: { mv: 6, mev: 8, mavMin: 12, mavMax: 18, mrv: 20 },
+    core: { mv: 4, mev: 8, mavMin: 12, mavMax: 20, mrv: 25 }
+};
+
+/**
  * Helper: Mapuje grupę mięśniową na konkretne partie z domyślnym zaangażowaniem.
  * Używane jako fallback, gdy brakuje szczegółowych danych o muscleEngagement.
  */
@@ -45,13 +66,11 @@ function getEffectiveEngagement(exerciseDef) {
         for (const secondaryEntry of exerciseDef.secondaryMuscles) {
             // Handle both old format (string) and new format ({ group, subMuscles })
             if (typeof secondaryEntry === 'string') {
-                // Stary format: tylko nazwa grupy
                 const secondaryMusclesParts = getMusclePartsFromGroup(secondaryEntry);
                 for (const [muscle, _] of Object.entries(secondaryMusclesParts)) {
                     engagement[muscle] = 40;
                 }
             } else if (secondaryEntry.group && secondaryEntry.subMuscles) {
-                // Nowy format: { group, subMuscles: [subIds] }
                 for (const subMuscleId of secondaryEntry.subMuscles) {
                     engagement[subMuscleId] = 40;
                 }
@@ -70,37 +89,33 @@ async function analyzeTrainingHistory(userId) {
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-    // Format YYYY-MM-DD, aby pasował do dat zapisanych w bazie jako stringi
     const sevenDaysAgoString = sevenDaysAgo.toISOString().split('T')[0];
-
-    // Pobierz treningi z ostatnich 7 dni
-    // Uwaga: pole date jest stringiem (YYYY-MM-DD), więc porównujemy stringi
     const workouts = await Workout.find({
         userId,
         date: { $gte: sevenDaysAgoString }
     }).sort({ date: -1 });
 
-    // Inicjalizacja statystyk mięśniowych
+    // Inicjalizacja statystyk mięśniowych (teraz liczymy serie zamiast objętości)
     const muscleStats = {
-        upperChest: { volume: 0, frequency: 0, lastTrained: null },
-        middleChest: { volume: 0, frequency: 0, lastTrained: null },
-        lowerChest: { volume: 0, frequency: 0, lastTrained: null },
-        backWidth: { volume: 0, frequency: 0, lastTrained: null },
-        backMiddle: { volume: 0, frequency: 0, lastTrained: null },
-        backLower: { volume: 0, frequency: 0, lastTrained: null },
-        frontDelts: { volume: 0, frequency: 0, lastTrained: null },
-        sideDelts: { volume: 0, frequency: 0, lastTrained: null },
-        rearDelts: { volume: 0, frequency: 0, lastTrained: null },
-        biceps: { volume: 0, frequency: 0, lastTrained: null },
-        triceps: { volume: 0, frequency: 0, lastTrained: null },
-        forearms: { volume: 0, frequency: 0, lastTrained: null },
-        quads: { volume: 0, frequency: 0, lastTrained: null },
-        hamstrings: { volume: 0, frequency: 0, lastTrained: null },
-        glutes: { volume: 0, frequency: 0, lastTrained: null },
-        calves: { volume: 0, frequency: 0, lastTrained: null },
-        upperAbs: { volume: 0, frequency: 0, lastTrained: null },
-        lowerAbs: { volume: 0, frequency: 0, lastTrained: null },
-        obliques: { volume: 0, frequency: 0, lastTrained: null }
+        upperChest: { sets: 0, frequency: 0, lastTrained: null },
+        middleChest: { sets: 0, frequency: 0, lastTrained: null },
+        lowerChest: { sets: 0, frequency: 0, lastTrained: null },
+        backWidth: { sets: 0, frequency: 0, lastTrained: null },
+        backMiddle: { sets: 0, frequency: 0, lastTrained: null },
+        backLower: { sets: 0, frequency: 0, lastTrained: null },
+        frontDelts: { sets: 0, frequency: 0, lastTrained: null },
+        sideDelts: { sets: 0, frequency: 0, lastTrained: null },
+        rearDelts: { sets: 0, frequency: 0, lastTrained: null },
+        biceps: { sets: 0, frequency: 0, lastTrained: null },
+        triceps: { sets: 0, frequency: 0, lastTrained: null },
+        forearms: { sets: 0, frequency: 0, lastTrained: null },
+        quads: { sets: 0, frequency: 0, lastTrained: null },
+        hamstrings: { sets: 0, frequency: 0, lastTrained: null },
+        glutes: { sets: 0, frequency: 0, lastTrained: null },
+        calves: { sets: 0, frequency: 0, lastTrained: null },
+        upperAbs: { sets: 0, frequency: 0, lastTrained: null },
+        lowerAbs: { sets: 0, frequency: 0, lastTrained: null },
+        obliques: { sets: 0, frequency: 0, lastTrained: null }
     };
 
     // Przetwórz każdy trening
@@ -114,29 +129,38 @@ async function analyzeTrainingHistory(userId) {
             const engagement = getEffectiveEngagement(exerciseDef);
             if (Object.keys(engagement).length === 0) continue;
 
-            // Oblicz całkowitą objętość dla tego ćwiczenia (ciężar × powtórzenia × serie)
-            let exerciseVolume = 0;
+            // Policz efektywne serie (zamiast obliczać volume = weight × reps)
+            let effectiveSets = 0;
             let hasAnyWork = false;
             for (const set of exercise.sets) {
                 const weight = parseFloat(set.weight) || 0;
                 const reps = parseFloat(set.reps) || 0;
 
-                if (reps > 0) {
+                // Seria liczy się jako efektywna, jeśli ma przynajmniej 1 powtórzenie
+                // Obejmuje: trening siłowy (1-5), hipertrofia (6-12), wytrzymałość (15+)
+                if (reps >= 1 && reps <= 50) {
                     hasAnyWork = true;
-                    // Dla ćwiczeń z masą własną (ciężar=0) używamy powtórzeń jako objętości
-                    // Dla ćwiczeń z ciężarem: ciężar × powtórzenia
-                    exerciseVolume += weight > 0 ? (weight * reps) : reps;
+                    effectiveSets++;
                 }
             }
 
-            // Pomiń ćwiczenia, gdzie nie wykonano pracy (ciężar i powtórzenia = 0)
-            if (!hasAnyWork) continue;
+            // Pomiń ćwiczenia, gdzie nie wykonano pracy
+            if (!hasAnyWork || effectiveSets === 0) continue;
 
-            // Rozdziel objętość na zaangażowane mięśnie
+            // Przypisz serie do mięśni z wagami na podstawie zaangażowania
             for (const [muscle, engagementPercent] of Object.entries(engagement)) {
                 if (engagementPercent > 0 && muscleStats[muscle]) {
-                    // Objętość ważona procentem zaangażowania
-                    muscleStats[muscle].volume += (exerciseVolume * engagementPercent) / 100;
+                    // Ważone liczenie serii:
+                    // - Wysokie zaangażowanie (≥50%): pełna seria
+                    // - Średnie zaangażowanie (30-49%): połowa serii
+                    // - Niskie zaangażowanie (<30%): proporcjonalnie
+                    const setContribution = engagementPercent >= 50
+                        ? effectiveSets
+                        : engagementPercent >= 30
+                            ? effectiveSets * 0.5
+                            : effectiveSets * (engagementPercent / 100);
+
+                    muscleStats[muscle].sets += setContribution;
 
                     // Zaktualizuj datę ostatniego treningu
                     if (!muscleStats[muscle].lastTrained || workout.date > muscleStats[muscle].lastTrained) {
@@ -204,44 +228,59 @@ function identifyMuscleStatus(muscleStats) {
     };
 
     // Agreguj do głównych grup mięśniowych dla łatwiejszej analizy
+    // WAŻNE: Biceps i Triceps osobno (nie łączone w "arms") dla prawidłowej synergii Pull/Push
+    // WAŻNE: Barki - 3 osobne grupy (front, side, rear)
     const aggregated = {
         chest: {
-            volume: muscleStats.upperChest.volume + muscleStats.middleChest.volume + muscleStats.lowerChest.volume,
+            sets: muscleStats.upperChest.sets + muscleStats.middleChest.sets + muscleStats.lowerChest.sets,
             frequency: Math.max(muscleStats.upperChest.frequency, muscleStats.middleChest.frequency, muscleStats.lowerChest.frequency),
             lastTrained: [muscleStats.upperChest.lastTrained, muscleStats.middleChest.lastTrained, muscleStats.lowerChest.lastTrained]
                 .filter(d => d !== null)
                 .sort((a, b) => b - a)[0] || null
         },
         back: {
-            volume: muscleStats.backWidth.volume + muscleStats.backMiddle.volume + muscleStats.backLower.volume,
+            sets: muscleStats.backWidth.sets + muscleStats.backMiddle.sets + muscleStats.backLower.sets,
             frequency: Math.max(muscleStats.backWidth.frequency, muscleStats.backMiddle.frequency, muscleStats.backLower.frequency),
             lastTrained: [muscleStats.backWidth.lastTrained, muscleStats.backMiddle.lastTrained, muscleStats.backLower.lastTrained]
                 .filter(d => d !== null)
                 .sort((a, b) => b - a)[0] || null
         },
-        shoulders: {
-            volume: muscleStats.frontDelts.volume + muscleStats.sideDelts.volume + muscleStats.rearDelts.volume,
-            frequency: Math.max(muscleStats.frontDelts.frequency, muscleStats.sideDelts.frequency, muscleStats.rearDelts.frequency),
-            lastTrained: [muscleStats.frontDelts.lastTrained, muscleStats.sideDelts.lastTrained, muscleStats.rearDelts.lastTrained]
-                .filter(d => d !== null)
-                .sort((a, b) => b - a)[0] || null
+        // BARKI: 3 OSOBNE GRUPY
+        frontDelts: {
+            sets: muscleStats.frontDelts.sets,
+            frequency: muscleStats.frontDelts.frequency,
+            lastTrained: muscleStats.frontDelts.lastTrained
         },
-        arms: {
-            volume: muscleStats.biceps.volume + muscleStats.triceps.volume,
-            frequency: Math.max(muscleStats.biceps.frequency, muscleStats.triceps.frequency),
-            lastTrained: [muscleStats.biceps.lastTrained, muscleStats.triceps.lastTrained]
-                .filter(d => d !== null)
-                .sort((a, b) => b - a)[0] || null
+        sideDelts: {
+            sets: muscleStats.sideDelts.sets,
+            frequency: muscleStats.sideDelts.frequency,
+            lastTrained: muscleStats.sideDelts.lastTrained
+        },
+        rearDelts: {
+            sets: muscleStats.rearDelts.sets,
+            frequency: muscleStats.rearDelts.frequency,
+            lastTrained: muscleStats.rearDelts.lastTrained
+        },
+        // BICEPS i TRICEPS OSOBNO
+        biceps: {
+            sets: muscleStats.biceps.sets,
+            frequency: muscleStats.biceps.frequency,
+            lastTrained: muscleStats.biceps.lastTrained
+        },
+        triceps: {
+            sets: muscleStats.triceps.sets,
+            frequency: muscleStats.triceps.frequency,
+            lastTrained: muscleStats.triceps.lastTrained
         },
         legs: {
-            volume: muscleStats.quads.volume + muscleStats.hamstrings.volume + muscleStats.glutes.volume + muscleStats.calves.volume,
+            sets: muscleStats.quads.sets + muscleStats.hamstrings.sets + muscleStats.glutes.sets + muscleStats.calves.sets,
             frequency: Math.max(muscleStats.quads.frequency, muscleStats.hamstrings.frequency, muscleStats.glutes.frequency, muscleStats.calves.frequency),
             lastTrained: [muscleStats.quads.lastTrained, muscleStats.hamstrings.lastTrained, muscleStats.glutes.lastTrained, muscleStats.calves.lastTrained]
                 .filter(d => d !== null)
                 .sort((a, b) => b - a)[0] || null
         },
         core: {
-            volume: muscleStats.upperAbs.volume + muscleStats.lowerAbs.volume + muscleStats.obliques.volume,
+            sets: muscleStats.upperAbs.sets + muscleStats.lowerAbs.sets + muscleStats.obliques.sets,
             frequency: Math.max(muscleStats.upperAbs.frequency, muscleStats.lowerAbs.frequency, muscleStats.obliques.frequency),
             lastTrained: [muscleStats.upperAbs.lastTrained, muscleStats.lowerAbs.lastTrained, muscleStats.obliques.lastTrained]
                 .filter(d => d !== null)
@@ -249,25 +288,38 @@ function identifyMuscleStatus(muscleStats) {
         }
     };
 
-    // Sklasyfikuj każdą główną grupę mięśniową
+    // Sklasyfikuj każdą główną grupę mięśniową na podstawie liczby serii i MEV/MAV/MRV
     for (const [group, stats] of Object.entries(aggregated)) {
         const daysSinceLastTrained = stats.lastTrained
             ? Math.floor((now - new Date(stats.lastTrained)) / (1000 * 60 * 60 * 24))
             : 999;
 
-        // Przetrenowane: bardzo wysoka częstotliwość (5+ razy/tydzień) LUB wysoka częstotliwość z niedawnym treningiem
-        if (stats.frequency >= 5 || (stats.frequency >= 3 && daysSinceLastTrained < 1)) {
+        const landmarks = VOLUME_LANDMARKS[group];
+        if (!landmarks) {
+            // Fallback dla grup bez zdefiniowanych landmarków
+            if (daysSinceLastTrained >= 7 || stats.sets === 0) {
+                status.undertrained.push(group);
+            } else if (daysSinceLastTrained >= 3) {
+                status.rested.push(group);
+            } else {
+                status.ready.push(group);
+            }
+            continue;
+        }
+
+        // Przetrenowane: Powyżej MRV LUB wysoka częstotliwość z niedawnym treningiem
+        if (stats.sets > landmarks.mrv || (stats.frequency >= 3 && daysSinceLastTrained < 1)) {
             status.overtrained.push(group);
         }
-        // Niedotrenowane: nie trenowane wcale w ciągu ostatnich 7 dni
-        else if (stats.volume === 0 || daysSinceLastTrained >= 7) {
+        // Niedotrenowane: Poniżej MEV i długi czas od ostatniego treningu
+        else if (stats.sets < landmarks.mev && daysSinceLastTrained >= 7) {
             status.undertrained.push(group);
         }
-        // Wypoczęte: 3-6 dni od ostatniego treningu (gotowe na ciężką pracę)
-        else if (daysSinceLastTrained >= 3 && daysSinceLastTrained < 7) {
+        // Wypoczęte: Osiągnięto przynajmniej MEV i 3+ dni odpoczynku
+        else if (stats.sets >= landmarks.mev && daysSinceLastTrained >= 3 && daysSinceLastTrained < 7) {
             status.rested.push(group);
         }
-        // Gotowe: 1-2 dni odpoczynku (można trenować, ale nie priorytet)
+        // Gotowe: 1-2 dni odpoczynku, ale nie przetrenowane
         else {
             status.ready.push(group);
         }
@@ -282,40 +334,34 @@ function identifyMuscleStatus(muscleStats) {
 async function generateRecommendation(userId, muscleStatus) {
     const { status, aggregated } = muscleStatus;
 
-    // Oblicz, które mięśnie były trenowane dzisiaj LUB wczoraj (zasada 48h regeneracji)
-    // ULEPSZONE: Użyj progów specyficznych dla mięśni
-    // Duże grupy (nogi, plecy) potrzebują znacznie większej objętości, aby zostać "zablokowane"
-    // Małe grupy (ramiona, barki) potrzebują mniej
-    const getVolumeThreshold = (muscle) => {
-        const thresholds = {
-            'legs': 8000,      // Nogi potrzebują dużej objętości, aby być naprawdę przetrenowane
-            'back': 8000,      // Plecy również potrzebują dużej objętości
-            'chest': 5000,     // Klatka średnio-dużo
-            'shoulders': 4000, // Barki średnio
-            'arms': 3000,      // Ramiona mniej
-            'core': 3000       // Brzuch/Core mniej
-        };
-        return thresholds[muscle] || 5000; // Domyślnie dla nieznanych
-    };
 
     const now = new Date();
     const blockedMuscles = [];
 
+    console.log('\n=== MUSCLE STATUS ANALYSIS ===');
+    // Zablokuj mięśnie trenowane w ostatnich 48h z wystarczającą objętością (≥ MAV minimum)
     for (const [muscle, stats] of Object.entries(aggregated)) {
         if (stats.lastTrained) {
             const daysSince = Math.floor((now - new Date(stats.lastTrained)) / (1000 * 60 * 60 * 24));
-            const threshold = getVolumeThreshold(muscle);
+            const landmarks = VOLUME_LANDMARKS[muscle];
 
-            // Zablokuj, jeśli trenowane dzisiaj (dni=0) LUB wczoraj (dni=1)
-            // To zapewnia minimum 48h przerwy między tymi samymi partiami
-            if (daysSince <= 1 && stats.volume >= threshold) {
+            console.log(`${muscle}: ${stats.sets} sets, ${daysSince} days ago, MAV min: ${landmarks?.mavMin}`);
+
+            // Blokuj jeśli trenowane niedawno (≤1 dzień) i osiągnięto przynajmniej MAV minimum
+            if (landmarks && daysSince <= 1 && stats.sets >= landmarks.mavMin) {
                 blockedMuscles.push(muscle);
+                console.log(`  ✗ BLOCKED (recent heavy training)`);
             }
         }
     }
 
-    // Helper: Odfiltruj mięśnie trenowane ciężko w ciągu ostatnich 48h
-    // Mięśnie pomocnicze (mała objętość) nie blokują rekomendacji
+    console.log('\nBlocked muscles:', blockedMuscles);
+    console.log('Undertrained:', status.undertrained);
+    console.log('Rested (3+ days):', status.rested);
+    console.log('Ready (1-2 days):', status.ready);
+    console.log('Overtrained:', status.overtrained);
+
+
     const getMusclesNotTrainedRecently = (muscles) => {
         return muscles.filter(muscle => {
             const stats = aggregated[muscle];
@@ -326,41 +372,87 @@ async function generateRecommendation(userId, muscleStatus) {
             // Jeśli 2+ dni temu, są dostępne (48h odpoczynku)
             if (daysSince >= 2) return true;
 
-            // Jeśli trenowane niedawno (dziś/wczoraj), ale mała objętość (praca pomocnicza), nadal dostępne
-            const threshold = getVolumeThreshold(muscle);
-            return stats.volume < threshold;
+            // Jeśli trenowane niedawno (dziś/wczoraj), ale poniżej MAV minimum (praca pomocnicza), nadal dostępne
+            const landmarks = VOLUME_LANDMARKS[muscle];
+            return landmarks && stats.sets < landmarks.mavMin;
         });
+    };
+
+    /**
+     * Funkcja pomocnicza: Dobiera synergiczne mięśnie zgodnie z zasadami Pull/Push/Legs
+     * @param {string} primaryMuscle - Główna partia (chest, back, legs, frontDelts, sideDelts, rearDelts)
+     * @param {Array} availableMinor - Dostępne mniejsze/pomocnicze partie
+     * @returns {Array} - Lista zgodnych mięśni do dodania
+     */
+    const getSynergisticMuscles = (primaryMuscle, availableMinor) => {
+        // PULL (Ciąganie): Plecy + BICEPS + TYLNE BARKI
+        if (primaryMuscle === 'back') {
+            return availableMinor.filter(m => m === 'biceps' || m === 'rearDelts');
+        }
+
+        // PULL: Tylne barki jako główna + BICEPS
+        if (primaryMuscle === 'rearDelts') {
+            return availableMinor.filter(m => m === 'biceps');
+        }
+
+        // PUSH (Pchanie): Klatka + TRICEPS + PRZEDNIE BARKI + BOCZNE BARKI
+        if (primaryMuscle === 'chest') {
+            return availableMinor.filter(m => m === 'triceps' || m === 'frontDelts' || m === 'sideDelts');
+        }
+
+        // PUSH: Przednie barki jako główna + TRICEPS + BOCZNE BARKI
+        if (primaryMuscle === 'frontDelts') {
+            return availableMinor.filter(m => m === 'triceps' || m === 'sideDelts');
+        }
+
+        // PUSH: Boczne barki jako główna + TRICEPS + PRZEDNIE BARKI
+        if (primaryMuscle === 'sideDelts') {
+            return availableMinor.filter(m => m === 'triceps' || m === 'frontDelts');
+        }
+
+        // LEGS: Nogi + Core
+        if (primaryMuscle === 'legs') {
+            return availableMinor.filter(m => m === 'core');
+        }
+
+        return [];
     };
 
 
 
-    // Priorytet 1: Jeśli główne grupy mięśniowe są niedotrenowane, sugeruj je
-    if (status.undertrained.length > 0) {
-        // ULEPSZONE: Wybierz JEDNĄ główną niedotrenowaną partię, a nie wszystkie
-        // Zapobiega to łączeniu "nogi + plecy", nawet jeśli obie są niedotrenowane
-        const majorUndertrainedGroups = ['legs', 'chest', 'back', 'shoulders'];
-        const minorUndertrainedGroups = ['arms', 'core'];
 
-        // Znajdź niedotrenowaną partię o najwyższym priorytecie
+    if (status.undertrained.length > 0) {
+        console.log('\n=== UNDERTRAINED MUSCLES DETECTED ===');
+        console.log('Undertrained:', status.undertrained);
+
+        const majorUndertrainedGroups = ['legs', 'chest', 'back', 'frontDelts', 'sideDelts', 'rearDelts'];
+        const minorUndertrainedGroups = ['biceps', 'triceps', 'core'];
+
         const primaryUndertrained = status.undertrained.find(m => majorUndertrainedGroups.includes(m));
+        console.log('Primary undertrained:', primaryUndertrained);
 
         let targetMuscles = [];
         if (primaryUndertrained) {
             targetMuscles = [primaryUndertrained];
 
-            // Opcjonalnie dodaj kompatybilną mniejszą partię
-            const compatibleMinor = status.undertrained.find(m =>
-                minorUndertrainedGroups.includes(m) && !targetMuscles.includes(m)
-            );
-            if (compatibleMinor) {
-                targetMuscles.push(compatibleMinor);
+            // NOWA LOGIKA: Dodaj synergiczne mięśnie zgodnie z Pull/Push/Legs
+            const minorUndertrained = status.undertrained.filter(m => minorUndertrainedGroups.includes(m));
+            console.log('Minor undertrained available:', minorUndertrained);
+
+            const synergistic = getSynergisticMuscles(primaryUndertrained, minorUndertrained);
+            console.log('Synergistic muscles for', primaryUndertrained, ':', synergistic);
+
+            if (synergistic.length > 0) {
+                targetMuscles.push(synergistic[0]); // Dodaj pierwszą synergiczną partię
             }
         } else {
             // Tylko mniejsze partie są niedotrenowane
             targetMuscles = status.undertrained.slice(0, 2);
         }
 
+        console.log('Target muscles selected:', targetMuscles);
         const plan = await findMatchingPlan(userId, targetMuscles, muscleStatus, blockedMuscles);
+        console.log('Plan found:', plan ? plan.name : 'NO PLAN - will try to generate temporary');
 
         if (plan) {
             return {
@@ -386,8 +478,8 @@ async function generateRecommendation(userId, muscleStatus) {
     const restedNotToday = getMusclesNotTrainedRecently(status.rested);
     if (restedNotToday.length > 0) {
         // ULEPSZONE: Wybierz JEDNĄ główną wypoczętą partię
-        const majorRestedGroups = ['legs', 'chest', 'back', 'shoulders'];
-        const minorRestedGroups = ['arms', 'core'];
+        const majorRestedGroups = ['legs', 'chest', 'back', 'frontDelts', 'sideDelts', 'rearDelts'];
+        const minorRestedGroups = ['biceps', 'triceps', 'core'];
 
         // Znajdź wypoczętą partię o najwyższym priorytecie
         const primaryRested = restedNotToday.find(m => majorRestedGroups.includes(m));
@@ -396,12 +488,12 @@ async function generateRecommendation(userId, muscleStatus) {
         if (primaryRested) {
             targetMuscles = [primaryRested];
 
-            // Optionally add a compatible minor muscle
-            const compatibleMinor = restedNotToday.find(m =>
-                minorRestedGroups.includes(m) && !targetMuscles.includes(m)
-            );
-            if (compatibleMinor) {
-                targetMuscles.push(compatibleMinor);
+            // NOWA LOGIKA: Dodaj synergiczne mięśnie zgodnie z Pull/Push/Legs
+            const minorRested = restedNotToday.filter(m => minorRestedGroups.includes(m));
+            const synergistic = getSynergisticMuscles(primaryRested, minorRested);
+
+            if (synergistic.length > 0) {
+                targetMuscles.push(synergistic[0]); // Dodaj pierwszą synergiczną partię
             }
         } else {
             // Only minor muscles are rested
@@ -436,11 +528,11 @@ async function generateRecommendation(userId, muscleStatus) {
         // Zdefiniuj priorytety głównych grup mięśniowych (dla splitu PPL)
         const majorGroups = ['legs', 'chest', 'back', 'shoulders'];
         const getMajorPriority = (muscle) => {
-            if (muscle === 'legs') return 0; // Highest priority
+            if (muscle === 'legs') return 0;
             if (muscle === 'chest' || muscle === 'back') return 1;
-            if (muscle === 'shoulders') return 2;
-            if (muscle === 'arms') return 3;
-            return 4; // core itp - najniższy priorytet
+            if (muscle === 'frontDelts' || muscle === 'sideDelts' || muscle === 'rearDelts') return 2; // 3 osobne barki
+            if (muscle === 'biceps' || muscle === 'triceps') return 3;
+            return 4; // core
         };
 
         const musclesByRecency = availableMuscles.map(muscle => ({
@@ -448,15 +540,20 @@ async function generateRecommendation(userId, muscleStatus) {
             daysSince: aggregated[muscle]?.lastTrained
                 ? Math.floor((now - new Date(aggregated[muscle].lastTrained)) / (1000 * 60 * 60 * 24))
                 : 999,
-            volume: aggregated[muscle]?.volume || 0,
+            sets: aggregated[muscle]?.sets || 0,
             priority: getMajorPriority(muscle)
         })).sort((a, b) => {
-            // Sortowanie główne: Główne grupy mięśniowe najpierw (nogi, klatka, plecy, barki przed ramionami/corem)
-            if (a.priority !== b.priority) return a.priority - b.priority;
-            // Sortowanie drugorzędne: Najstarsze najpierw (najwięcej dni od treningu)
+            // KLUCZOWA ZMIANA DLA ROTACJI:
+            // 1. Sortowanie GŁÓWNE: Najdłużej od ostatniego treningu (największy daysSince)
+            //    To zapewnia rotację: chest -> back -> legs zamiast zawsze tego samego
             if (b.daysSince !== a.daysSince) return b.daysSince - a.daysSince;
-            // Rozstrzyganie remisów: Najniższa objętość najpierw (najmniej trenowane = priorytet)
-            return a.volume - b.volume;
+
+            // 2. Sortowanie DRUGORZĘDNE: Główne grupy przed pomocniczymi
+            //    (tylko dla mięśni z tym samym czasem od ostatniego treningu)
+            if (a.priority !== b.priority) return a.priority - b.priority;
+
+            // 3. Rozstrzyganie remisów: Najmniej serii
+            return a.sets - b.sets;
         });
 
         console.log('DEBUG - Muscles by recency:', musclesByRecency);
@@ -464,8 +561,8 @@ async function generateRecommendation(userId, muscleStatus) {
         // ULEPSZONA LOGIKA: Wybierz JEDNĄ główną grupę mięśniową (nogi, klatka, plecy, barki)
         // i opcjonalnie połącz z mniejszymi grupami (ramiona, core)
         // To zapobiega łączeniu nogi + plecy w jeden trening
-        const primaryMajorGroups = ['legs', 'chest', 'back', 'shoulders'];
-        const minorGroups = ['arms', 'core'];
+        const primaryMajorGroups = ['legs', 'chest', 'back', 'frontDelts', 'sideDelts', 'rearDelts'];
+        const minorGroups = ['biceps', 'triceps', 'core'];
 
         // Znajdź główną grupę o najwyższym priorytecie
         const primaryMuscle = musclesByRecency.find(m => primaryMajorGroups.includes(m.muscle));
@@ -474,12 +571,14 @@ async function generateRecommendation(userId, muscleStatus) {
         if (primaryMuscle) {
             targetMuscles = [primaryMuscle.muscle];
 
-            // Opcjonalnie dodaj kompatybilną mniejszą grupę
-            const compatibleMinor = musclesByRecency.find(m =>
-                minorGroups.includes(m.muscle) && !targetMuscles.includes(m.muscle)
-            );
-            if (compatibleMinor) {
-                targetMuscles.push(compatibleMinor.muscle);
+            // NOWA LOGIKA: Dodaj synergiczne mięśnie zgodnie z Pull/Push/Legs
+            const minorAvailable = musclesByRecency
+                .filter(m => minorGroups.includes(m.muscle))
+                .map(m => m.muscle);
+            const synergistic = getSynergisticMuscles(primaryMuscle.muscle, minorAvailable);
+
+            if (synergistic.length > 0) {
+                targetMuscles.push(synergistic[0]); // Dodaj pierwszą synergiczną partię
             }
         } else {
             // Jeśli brak głównych grup, weź 2 czołowe mniejsze domyślnie
@@ -564,8 +663,11 @@ async function findMatchingPlan(userId, targetMuscles, muscleStatus, blockedMusc
     const muscleMap = {
         'chest': ['push', 'chest', 'klatka'],
         'back': ['pull', 'back', 'plecy'],
-        'shoulders': ['push', 'shoulders', 'barki'],
-        'arms': ['push', 'pull', 'arms', 'ramiona'],
+        'frontDelts': ['push', 'front', 'przod', 'shoulders'],  // Przód = Push
+        'sideDelts': ['push', 'side', 'bok', 'shoulders'],   // Bok = Push
+        'rearDelts': ['pull', 'rear', 'tylne'],  // Tył = Pull
+        'biceps': ['pull', 'biceps'],
+        'triceps': ['push', 'triceps'],
         'legs': ['legs', 'nogi'],
         'core': ['core', 'abs', 'brzuch']
     };
@@ -636,8 +738,11 @@ async function generateTemporaryPlan(userId, targetMuscles, reason) {
     const musclePartsMap = {
         'chest': ['upperChest', 'middleChest', 'lowerChest'],
         'back': ['backWidth', 'backMiddle', 'backLower'],
-        'shoulders': ['frontDelts', 'sideDelts', 'rearDelts'],
-        'arms': ['biceps', 'triceps'],
+        'frontDelts': ['frontDelts'],  // Przód osobno
+        'sideDelts': ['sideDelts'],   // Bok osobno
+        'rearDelts': ['rearDelts'],   // Tył osobno
+        'biceps': ['biceps'],
+        'triceps': ['triceps'],
         'legs': ['quads', 'hamstrings', 'glutes', 'calves'],
         'core': ['upperAbs', 'lowerAbs', 'obliques']
     };

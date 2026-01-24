@@ -8,7 +8,7 @@ const getApiBaseUrl = () => {
   }
 
   // Twoje lokalne IP
-  const LOCAL_IP = '192.168.55.105';
+  const LOCAL_IP = '192.168.55.102';
 
   // Dla wszystkich platform w trybie development używamy lokalnego IP
   return `http://${LOCAL_IP}:5000/api`;

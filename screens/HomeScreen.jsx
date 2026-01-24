@@ -7,7 +7,8 @@ import {
   ScrollView,
   StatusBar,
   TouchableOpacity,
-  ActivityIndicator
+  ActivityIndicator,
+  Alert
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../services/api';
@@ -16,6 +17,7 @@ const TEMP_USER_ID = '65a000000000000000000001';
 
 const HomeScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
+  const [username, setUsername] = useState('');
   const [monthlyStats, setMonthlyStats] = useState({
     totalWorkouts: 0,
     avgWorkoutDuration: 0,
@@ -28,6 +30,12 @@ const HomeScreen = ({ navigation }) => {
   const fetchData = async () => {
     try {
       setLoading(true);
+
+      // Pobierz dane użytkownika
+      const userData = await api.getUser();
+      if (userData && userData.username) {
+        setUsername(userData.username);
+      }
 
       const stats = await api.getStats();
       if (stats && stats.current) {
@@ -71,6 +79,34 @@ const HomeScreen = ({ navigation }) => {
     return new Date(dateStr).toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' });
   };
 
+  const handleLogout = () => {
+    Alert.alert(
+      'Wylogowanie',
+      'Czy na pewno chcesz się wylogować?',
+      [
+        {
+          text: 'Anuluj',
+          style: 'cancel'
+        },
+        {
+          text: 'Wyloguj',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.removeToken();
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Login' }],
+              });
+            } catch (error) {
+              console.error('Logout error:', error);
+            }
+          }
+        }
+      ]
+    );
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={[styles.container, styles.center]}>
@@ -88,10 +124,17 @@ const HomeScreen = ({ navigation }) => {
       >
         {/* Nagłówek */}
         <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>Witaj!</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.greeting}>Witaj{username ? ` ${username}` : ''}!</Text>
             <Text style={styles.date}>{new Date().toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' })}</Text>
           </View>
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={handleLogout}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.logoutIcon}>←</Text>
+          </TouchableOpacity>
         </View>
 
         {/* AI Insight */}
@@ -223,8 +266,27 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginTop: 20,
     marginBottom: 24,
+  },
+  logoutButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#DC2626',
+    borderWidth: 1.5,
+    borderColor: '#EF4444',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoutIcon: {
+    fontSize: 24,
+    color: '#FFFFFF',
+    fontWeight: '700',
+    textAlign: 'center',
   },
   greeting: {
     fontSize: 32,

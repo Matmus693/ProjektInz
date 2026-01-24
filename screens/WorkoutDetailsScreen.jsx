@@ -183,6 +183,14 @@ const WorkoutDetailsScreen = ({ navigation, route }) => {
                     sum + (parseFloat(set.weight || 0) * parseFloat(set.reps || 0)), 0
                   ).toFixed(0)} kg
                 </Text>
+                <TouchableOpacity
+                  style={styles.chartButton}
+                  onPress={() => navigation.navigate('ExerciseProgress', { exerciseName: exercise.name })}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.chartButtonIcon}>📊</Text>
+                  <Text style={styles.chartButtonText}>Wykresy</Text>
+                </TouchableOpacity>
               </View>
             </View>
           ))}
@@ -384,6 +392,9 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   exerciseSummary: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: '#334155',
@@ -391,6 +402,24 @@ const styles = StyleSheet.create({
   exerciseSummaryText: {
     fontSize: 13,
     color: '#3B82F6',
+    fontWeight: '600',
+    flex: 1,
+  },
+  chartButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#334155',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 6,
+  },
+  chartButtonIcon: {
+    fontSize: 16,
+  },
+  chartButtonText: {
+    fontSize: 12,
+    color: '#E2E8F0',
     fontWeight: '600',
   },
   actionButtons: {
