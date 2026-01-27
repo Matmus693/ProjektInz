@@ -16,7 +16,6 @@ router.post('/seed', async (req, res) => {
         name: 'Push A',
         type: 'Szablon',
         description: 'Klatka, ramiona, triceps',
-        isActive: false,
         exercises: [
           { name: 'Bench Press', numSets: 4, sets: [] },
           { name: 'Incline DB Press', numSets: 3, sets: [] },
@@ -28,7 +27,6 @@ router.post('/seed', async (req, res) => {
         name: 'Pull A',
         type: 'Szablon',
         description: 'Plecy, biceps, martwy ciąg',
-        isActive: false,
         exercises: [
           { name: 'Deadlift', numSets: 4, sets: [] },
           { name: 'Pull-ups', numSets: 4, sets: [] },
@@ -39,7 +37,6 @@ router.post('/seed', async (req, res) => {
         name: 'Legs A',
         type: 'Szablon',
         description: 'Nogi, pośladki, łydki',
-        isActive: false,
         exercises: [
           { name: 'Squat', numSets: 4, sets: [] },
           { name: 'Romanian Deadlift', numSets: 4, sets: [] },
@@ -50,7 +47,6 @@ router.post('/seed', async (req, res) => {
         name: 'FBW',
         type: 'Szablon',
         description: 'Full Body Workout',
-        isActive: false,
         exercises: [
           { name: 'Squat', numSets: 4, sets: [] },
           { name: 'Bench Press', numSets: 4, sets: [] },
@@ -87,7 +83,7 @@ router.get('/templates', auth, async (req, res) => {
 router.get('/', auth, async (req, res) => {
   try {
     const plans = await WorkoutPlan.find({ userId: req.user._id })
-      .sort({ isActive: -1, createdAt: -1 });
+      .sort({ createdAt: -1 });
     res.json(plans);
   } catch (error) {
     console.error('Get workout plans error:', error);
@@ -122,14 +118,6 @@ router.post('/', auth, async (req, res) => {
       userId: req.user._id,
     };
 
-    // Jeśli ustawiamy jako aktywny, dezaktywuj pozostałe plany
-    if (planData.isActive) {
-      await WorkoutPlan.updateMany(
-        { userId: req.user._id },
-        { $set: { isActive: false } }
-      );
-    }
-
     const plan = new WorkoutPlan(planData);
     await plan.save();
 
@@ -143,14 +131,6 @@ router.post('/', auth, async (req, res) => {
 // Zaktualizuj plan treningowy
 router.put('/:id', auth, async (req, res) => {
   try {
-    // Jeśli ustawiamy jako aktywny, dezaktywuj pozostałe plany
-    if (req.body.isActive) {
-      await WorkoutPlan.updateMany(
-        { userId: req.user._id, _id: { $ne: req.params.id } },
-        { $set: { isActive: false } }
-      );
-    }
-
     const plan = await WorkoutPlan.findOneAndUpdate(
       { _id: req.params.id, userId: req.user._id },
       req.body,

@@ -46,10 +46,54 @@ const WorkoutHistoryScreen = ({ navigation }) => {
     }, [])
   );
 
-  const filteredWorkouts =
-    selectedFilter === 'all'
-      ? workouts
-      : workouts.filter((w) => w.type === selectedFilter);
+  const filteredWorkouts = workouts.filter((w) => {
+    if (selectedFilter === 'all') return true;
+
+    // Intelligent filtering based on exercise content (Muscles/Names)
+    const hasMatchingExercise = w.exercises?.some(ex => {
+      const group = (ex.muscleGroup || '').toLowerCase();
+      const name = (ex.name || '').toLowerCase();
+
+      if (selectedFilter === 'push') {
+        // Push: Chest, Shoulders (Front/Side), Triceps
+        // Keywords: press, push, dip, fly, raise, extension
+        // Exclude: leg press (contains press but is legs)
+        const isChest = group === 'chest' || name.includes('chest') || name.includes('bench') || name.includes('fly');
+        const isShoulder = group === 'shoulders' || name.includes('shoulder') || name.includes('overhead') || name.includes('military') || name.includes('raise');
+        const isTricep = (group === 'arms' && (name.includes('tricep') || name.includes('skull') || name.includes('dip'))) || name.includes('tricep');
+        // Keyword checks
+        const isPushName = (name.includes('press') && !name.includes('leg')) || name.includes('push') || name.includes('dip');
+
+        return isChest || isShoulder || isTricep || isPushName;
+      }
+
+      if (selectedFilter === 'pull') {
+        // Pull: Back, Biceps, Rear Delts
+        // Keywords: pull, row, chin, curl, lat
+        const isBack = group === 'back' || name.includes('back') || name.includes('row') || name.includes('lat') || name.includes('pull') || name.includes('chin') || name.includes('deadlift');
+        const isBicep = (group === 'arms' && (name.includes('bicep') || name.includes('curl'))) || name.includes('bicep') || name.includes('curl');
+
+        return isBack || isBicep;
+      }
+
+      if (selectedFilter === 'legs') {
+        // Legs: Quads, Hams, Glutes, Calves
+        // Keywords: squat, leg, calf, lunge, deadlift (also back but fits here)
+        const isLegs = group === 'legs' || name.includes('leg') || name.includes('squat') || name.includes('calf') || name.includes('calves') || name.includes('lunge') || name.includes('deadlift');
+
+        return isLegs;
+      }
+
+      return false;
+    });
+
+    // Fallback: match by explicit type if no specific exercises matched (or for backward compatibility)
+    if (!hasMatchingExercise && w.type && w.type.toLowerCase() === selectedFilter) {
+      return true;
+    }
+
+    return hasMatchingExercise;
+  });
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -162,7 +206,7 @@ const WorkoutHistoryScreen = ({ navigation }) => {
         showsVerticalScrollIndicator={false}
       >
         {filteredWorkouts.map((workout, index) => (
-          <View key={workout._id ? String(workout._id) : (workout.id ? String(workout.id) : String(index))} style={styles.workoutCard}>
+          <View key={`${workout._id || workout.id || 'workout'}-${index}`} style={styles.workoutCard}>
             <TouchableOpacity
               style={styles.workoutCardContent}
               activeOpacity={0.7}

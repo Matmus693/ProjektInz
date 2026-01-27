@@ -291,6 +291,13 @@ router.get('/exercise/:name', auth, async (req, res) => {
 
     // Max Volume (największa objętość w jednej sesji)
     const maxVolume = history.length > 0 ? Math.max(...history.map(h => h.volume)) : 0;
+
+    // All-Time Max Weight (Rekord życiowy)
+    const allTimeMax = history.length > 0 ? Math.max(...history.map(h => h.maxWeight)) : 0;
+
+    // All-Time 1RM (Rekord 1RM)
+    const allTime1RM = history.length > 0 ? Math.max(...history.map(h => h.oneRepMax)) : 0;
+
     const sessions = history.length;
 
     res.json({
@@ -299,6 +306,8 @@ router.get('/exercise/:name', auth, async (req, res) => {
       current1RM,
       previous1RM,
       maxVolume,
+      allTimeMax,
+      allTime1RM,
       sessions,
       history: history.reverse()
     });

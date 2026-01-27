@@ -134,7 +134,8 @@ router.post('/', auth, async (req, res) => {
     await workout.save();
 
     // Posprzątaj plany tymczasowe (jednorazowe sugestie AI)
-    // To plany stworzone przez system rekomendacji, już niepotrzebne
+    // UWAGA: Wygenerowane plany (isGenerated: true) mają temporary: false,
+    // więc nie będą usuwane - pozostają w "Wszystkie plany"
     await WorkoutPlan.deleteMany({
       userId: req.user._id,
       temporary: true

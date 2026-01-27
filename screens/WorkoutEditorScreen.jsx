@@ -355,6 +355,7 @@ const WorkoutEditorScreen = ({ navigation, route }) => {
         // await addExerciseFromBase(created); // Czekaj jeśli asynchroniczne
         // Prościej dodać ręcznie, bo i tak nie ma historii
         const newEx = {
+          id: Date.now().toString(),
           localId: Date.now().toString(),
           name: created.name,
           muscleGroup: created.muscleGroup,
@@ -436,6 +437,7 @@ const WorkoutEditorScreen = ({ navigation, route }) => {
     }
 
     const newExercise = {
+      id: `${timestamp}_ex`,
       localId: `${timestamp}_ex`,
       name: exerciseDef.name,
       muscleGroup: exerciseDef.muscleGroup,

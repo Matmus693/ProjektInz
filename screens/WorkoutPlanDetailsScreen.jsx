@@ -80,36 +80,10 @@ const WorkoutPlanDetailsScreen = ({ navigation, route }) => {
           <Text style={styles.sectionTitle}>ĆWICZENIA</Text>
 
           {planExercises.map((exercise, index) => (
-            <View key={exercise.id || exercise._id || `ex-${index}`} style={styles.exerciseCard}>
+            <View key={`${exercise.id || exercise._id || 'ex'}-${index}`} style={styles.exerciseCard}>
               <View style={styles.exerciseHeader}>
                 <Text style={styles.exerciseNumber}>{index + 1}</Text>
                 <Text style={styles.exerciseName}>{exercise.name}</Text>
-              </View>
-
-              <View style={styles.setsContainer}>
-                {exercise.sets && exercise.sets.map((set, setIndex) => (
-                  <View key={set.id || set._id || `set-${index}-${setIndex}`} style={styles.setRow}>
-                    <Text style={styles.setLabel}>Seria {setIndex + 1}</Text>
-                    <View style={styles.setValues}>
-                      {set.weight && (
-                        <Text style={styles.setValue}>
-                          {set.weight} kg
-                        </Text>
-                      )}
-                      {set.weight && set.reps && (
-                        <Text style={styles.setDivider}>×</Text>
-                      )}
-                      {set.reps && (
-                        <Text style={styles.setValue}>
-                          {set.reps} rep
-                        </Text>
-                      )}
-                      {!set.weight && !set.reps && (
-                        <Text style={styles.setEmpty}>Nie wypełniono</Text>
-                      )}
-                    </View>
-                  </View>
-                ))}
               </View>
             </View>
           ))}
@@ -237,10 +211,8 @@ const styles = StyleSheet.create({
   exerciseHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#334155',
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   exerciseNumber: {
     fontSize: 14,

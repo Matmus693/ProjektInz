@@ -435,21 +435,26 @@ const ProgressScreen = ({ navigation }) => {
 
               <View style={styles.exerciseStats}>
                 <View style={styles.exerciseStat}>
-                  <Text style={styles.exerciseStatLabel}>Aktualny max</Text>
+                  <Text style={styles.exerciseStatLabel}>Ostatni ciężar</Text>
                   <Text style={styles.exerciseStatValue}>
                     {exerciseProgress?.currentMax || 0} kg
                   </Text>
                 </View>
                 <View style={styles.exerciseStat}>
-                  <Text style={styles.exerciseStatLabel}>Poprzedni max</Text>
+                  <Text style={styles.exerciseStatLabel}>Poprzedni trening</Text>
                   <Text style={styles.exerciseStatValue}>
                     {exerciseProgress?.previousMax || 0} kg
                   </Text>
                 </View>
                 <View style={styles.exerciseStat}>
                   <Text style={styles.exerciseStatLabel}>Postęp</Text>
-                  <Text style={[styles.exerciseStatValue, styles.exerciseStatProgress]}>
-                    +{((exerciseProgress?.currentMax || 0) - (exerciseProgress?.previousMax || 0)).toFixed(1)} kg
+                  <Text style={[
+                    styles.exerciseStatValue,
+                    styles.exerciseStatProgress,
+                    { color: ((exerciseProgress?.currentMax || 0) - (exerciseProgress?.previousMax || 0)) >= 0 ? '#10B981' : '#EF4444' }
+                  ]}>
+                    {((exerciseProgress?.currentMax || 0) - (exerciseProgress?.previousMax || 0)) > 0 ? '+' : ''}
+                    {((exerciseProgress?.currentMax || 0) - (exerciseProgress?.previousMax || 0)).toFixed(1)} kg
                   </Text>
                 </View>
               </View>
@@ -1011,7 +1016,7 @@ const styles = StyleSheet.create({
     color: '#E2E8F0',
   },
   exerciseStatProgress: {
-    color: '#10B981',
+    fontWeight: '700',
   },
   exerciseHistory: {
     marginTop: 8,

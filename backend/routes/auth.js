@@ -16,7 +16,6 @@ const createDefaultPlans = async (userId) => {
       name: 'Push A',
       type: 'Szablon',
       description: 'Klatka, triceps, przednie i boczne barki',
-      isActive: false,
       exercises: [
         { name: 'Bench Press', numSets: 4, sets: [] },
         { name: 'Incline DB Press', numSets: 3, sets: [] },
@@ -31,7 +30,6 @@ const createDefaultPlans = async (userId) => {
       name: 'Pull A',
       type: 'Szablon',
       description: 'Plecy, biceps, tylne barki',
-      isActive: false,
       exercises: [
         { name: 'Deadlift', numSets: 4, sets: [] },
         { name: 'Pull-ups', numSets: 4, sets: [] },
@@ -45,7 +43,6 @@ const createDefaultPlans = async (userId) => {
       name: 'Legs A',
       type: 'Szablon',
       description: 'Nogi, pośladki, łydki, core',
-      isActive: false,
       exercises: [
         { name: 'Squat', numSets: 4, sets: [] },
         { name: 'Romanian Deadlift', numSets: 4, sets: [] },
@@ -59,7 +56,6 @@ const createDefaultPlans = async (userId) => {
       name: 'FBW',
       type: 'Szablon',
       description: 'Full Body Workout',
-      isActive: false,
       exercises: [
         { name: 'Squat', numSets: 4, sets: [] },
         { name: 'Bench Press', numSets: 4, sets: [] },

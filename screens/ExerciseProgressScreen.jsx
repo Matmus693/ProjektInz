@@ -17,6 +17,8 @@ const ExerciseProgressScreen = ({ route, navigation }) => {
     const [loading, setLoading] = useState(true);
     const [progressData, setProgressData] = useState(null);
 
+    const [selectedPoint, setSelectedPoint] = useState(null);
+
     useEffect(() => {
         fetchProgress();
     }, [exerciseName]);
@@ -33,15 +35,35 @@ const ExerciseProgressScreen = ({ route, navigation }) => {
         }
     };
 
+    const handleDataPointClick = (data, dates) => {
+        const { index, value } = data;
+        if (dates && dates[index]) {
+            setSelectedPoint({
+                date: dates[index],
+                value: value
+            });
+        }
+    };
+
+    // Helper dla Tooltipa
+    const TooltipComponent = () => {
+        if (!selectedPoint) return null;
+        return (
+            <View style={styles.tooltipContainer}>
+                <Text style={styles.tooltipDate}>{selectedPoint.date}</Text>
+                <Text style={styles.tooltipValue}>{selectedPoint.value}</Text>
+            </View>
+        );
+    };
+
     const formatChartData = () => {
         if (!progressData || !progressData.history || progressData.history.length === 0) {
             return null;
         }
 
-        // Pobierz ostatnie 10 sesji do wykresu
         const recentHistory = progressData.history.slice(0, 10).reverse();
 
-        const labels = recentHistory.map((item, idx) => {
+        const labels = recentHistory.map((item) => {
             const date = new Date(item.date);
             return `${date.getDate()}/${date.getMonth() + 1}`;
         });
@@ -94,6 +116,9 @@ const ExerciseProgressScreen = ({ route, navigation }) => {
     const chartData = formatChartData();
     const screenWidth = Dimensions.get('window').width;
 
+    // Przygotuj pełne daty dla tooltipa (nie tylko DD/MM)
+    const fullDates = progressData?.history?.slice(0, 10).reverse().map(item => item.date) || [];
+
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
@@ -106,39 +131,53 @@ const ExerciseProgressScreen = ({ route, navigation }) => {
             <ScrollView showsVerticalScrollIndicator={false}>
                 {/* Karty Statystyk */}
                 <View style={styles.statsContainer}>
+                    {/* Karta 1: Ostatni Wynik + Trend */}
                     <View style={styles.statCard}>
                         <Text style={styles.statValue}>{progressData.currentMax} kg</Text>
-                        <Text style={styles.statLabel}>Max Waga</Text>
+                        <Text style={styles.statLabel}>Ostatni</Text>
                         {progressData.previousMax > 0 && (
                             <Text style={[
                                 styles.statChange,
-                                progressData.currentMax > progressData.previousMax ? styles.statUp : styles.statDown
+                                { color: ((progressData.currentMax || 0) - (progressData.previousMax || 0)) >= 0 ? '#10B981' : '#EF4444' }
                             ]}>
-                                {progressData.currentMax > progressData.previousMax ? '+' : ''}
-                                {(progressData.currentMax - progressData.previousMax).toFixed(1)} kg
+                                {`${((progressData.currentMax || 0) - (progressData.previousMax || 0)) > 0 ? '+' : ''}${((progressData.currentMax || 0) - (progressData.previousMax || 0)).toFixed(1)} kg`}
                             </Text>
                         )}
                     </View>
 
+                    {/* Karta 2: Poprzedni Trening */}
+                    <View style={styles.statCard}>
+                        <Text style={styles.statValue}>{progressData.previousMax} kg</Text>
+                        <Text style={styles.statLabel}>Poprzedni</Text>
+                        <Text style={styles.statSubtext}>Max Waga</Text>
+                    </View>
+
+                    {/* Karta 3: Aktualny 1RM + Trend */}
                     <View style={styles.statCard}>
                         <Text style={styles.statValue}>{progressData.current1RM?.toFixed(1) || 0}</Text>
                         <Text style={styles.statLabel}>1 Rep Max</Text>
                         {progressData.previous1RM > 0 && (
                             <Text style={[
                                 styles.statChange,
-                                progressData.current1RM > progressData.previous1RM ? styles.statUp : styles.statDown
+                                { color: ((progressData.current1RM || 0) - (progressData.previous1RM || 0)) >= 0 ? '#10B981' : '#EF4444' }
                             ]}>
-                                {progressData.current1RM > progressData.previous1RM ? '+' : ''}
-                                {(progressData.current1RM - progressData.previous1RM).toFixed(1)}
+                                {`${((progressData.current1RM || 0) - (progressData.previous1RM || 0)) > 0 ? '+' : ''}${((progressData.current1RM || 0) - (progressData.previous1RM || 0)).toFixed(1)} (ost.)`}
                             </Text>
                         )}
                     </View>
+                </View>
 
-                    <View style={styles.statCard}>
-                        <Text style={styles.statValue}>{Math.round(progressData.maxVolume || 0)}</Text>
-                        <Text style={styles.statLabel}>Max Volume</Text>
-                        <Text style={styles.statSubtext}>kg × reps</Text>
-                    </View>
+                {/* Wyświetlanie wybranego punktu (Tooltip) */}
+                <View style={styles.tooltipSection}>
+                    {selectedPoint ? (
+                        <View style={styles.tooltipCard}>
+                            <Text style={styles.tooltipLabel}>Wybrany trening:</Text>
+                            <Text style={styles.tooltipText}>{selectedPoint.date}</Text>
+                            <Text style={styles.tooltipValueHighlight}>{selectedPoint.value}</Text>
+                        </View>
+                    ) : (
+                        <Text style={styles.tooltipHint}>Kliknij punkt na wykresie, aby zobaczyć datę</Text>
+                    )}
                 </View>
 
                 {/* Wykres Progresji Wagi */}
@@ -154,24 +193,31 @@ const ExerciseProgressScreen = ({ route, navigation }) => {
                             }}
                             width={screenWidth - 40}
                             height={220}
+                            onDataPointClick={(data) => handleDataPointClick(data, fullDates)}
+                            withVerticalLabels={false} // Ukryj daty
+                            withHorizontalLabels={true} // Pokaż wagi
                             chartConfig={{
                                 backgroundColor: '#1E293B',
                                 backgroundGradientFrom: '#1E293B',
                                 backgroundGradientTo: '#0F172A',
                                 decimalPlaces: 0,
                                 color: (opacity = 1) => `rgba(59, 130, 246, ${opacity})`,
-                                labelColor: (opacity = 1) => `rgba(148, 163, 184, ${opacity})`,
+                                labelColor: (opacity = 1) => `rgba(148, 163, 184, ${opacity})`, // Przywróć widoczność etykiet
                                 style: {
                                     borderRadius: 16
                                 },
                                 propsForDots: {
-                                    r: '5',
+                                    r: '6',
                                     strokeWidth: '2',
                                     stroke: '#3B82F6'
                                 }
                             }}
                             bezier
-                            style={styles.chart}
+                            style={{
+                                ...styles.chart,
+                                paddingRight: 40,
+                                paddingBottom: 20,
+                            }}
                         />
                     </View>
                 )}
@@ -189,6 +235,9 @@ const ExerciseProgressScreen = ({ route, navigation }) => {
                             }}
                             width={screenWidth - 40}
                             height={220}
+                            onDataPointClick={(data) => handleDataPointClick(data, fullDates)}
+                            withVerticalLabels={false}
+                            withHorizontalLabels={true}
                             chartConfig={{
                                 backgroundColor: '#1E293B',
                                 backgroundGradientFrom: '#1E293B',
@@ -200,12 +249,16 @@ const ExerciseProgressScreen = ({ route, navigation }) => {
                                     borderRadius: 16
                                 },
                                 propsForDots: {
-                                    r: '5',
+                                    r: '6',
                                     strokeWidth: '2',
                                     stroke: '#10B981'
                                 }
                             }}
-                            style={styles.chart}
+                            style={{
+                                ...styles.chart,
+                                paddingRight: 40,
+                                paddingBottom: 20,
+                            }}
                         />
                     </View>
                 )}
@@ -223,6 +276,9 @@ const ExerciseProgressScreen = ({ route, navigation }) => {
                             }}
                             width={screenWidth - 40}
                             height={220}
+                            onDataPointClick={(data) => handleDataPointClick(data, fullDates)}
+                            withVerticalLabels={false}
+                            withHorizontalLabels={true}
                             chartConfig={{
                                 backgroundColor: '#1E293B',
                                 backgroundGradientFrom: '#1E293B',
@@ -234,12 +290,16 @@ const ExerciseProgressScreen = ({ route, navigation }) => {
                                     borderRadius: 16
                                 },
                                 propsForDots: {
-                                    r: '5',
+                                    r: '6',
                                     strokeWidth: '2',
                                     stroke: '#8B5CF6'
                                 }
                             }}
-                            style={styles.chart}
+                            style={{
+                                ...styles.chart,
+                                paddingRight: 40,
+                                paddingBottom: 20,
+                            }}
                         />
                     </View>
                 )}
@@ -248,7 +308,7 @@ const ExerciseProgressScreen = ({ route, navigation }) => {
                 <View style={styles.historySection}>
                     <Text style={styles.historyTitle}>Historia Treningów</Text>
                     {progressData.history.slice(0, 10).map((item, index) => (
-                        <View key={index} style={styles.historyItem}>
+                        <View key={item._id || `${item.date}-${index}`} style={styles.historyItem}>
                             <View style={styles.historyDate}>
                                 <Text style={styles.historyDateText}>{item.date}</Text>
                             </View>
@@ -404,6 +464,45 @@ const styles = StyleSheet.create({
     historyStatText: {
         color: '#94A3B8',
         fontSize: 13,
+    },
+    tooltipSection: {
+        marginTop: 10,
+        marginBottom: 10,
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        minHeight: 60,
+        justifyContent: 'center',
+    },
+    tooltipCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#2D3748',
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 20,
+        gap: 8,
+        borderWidth: 1,
+        borderColor: '#4A5568',
+    },
+    tooltipLabel: {
+        color: '#A0AEC0',
+        fontSize: 12,
+    },
+    tooltipText: {
+        color: '#FFF',
+        fontWeight: 'bold',
+        fontSize: 14,
+    },
+    tooltipValueHighlight: {
+        color: '#3B82F6',
+        fontWeight: 'bold',
+        fontSize: 16,
+        marginLeft: 4,
+    },
+    tooltipHint: {
+        color: '#718096',
+        fontSize: 12,
+        fontStyle: 'italic',
     },
 });
 

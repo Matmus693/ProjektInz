@@ -453,42 +453,7 @@ const WorkoutPlanEditorScreen = ({ navigation, route }) => {
                 />
               </View>
 
-              <View style={styles.setsContainer}>
-                {exercise.sets.map((set, setIndex) => (
-                  <View key={setIndex} style={styles.setRow}>
-                    <Text style={styles.setNumber}>{setIndex + 1}</Text>
-                    <View style={styles.setInputs}>
-                      <View style={styles.setInputGroup}>
-                        <TextInput
-                          style={styles.setInput}
-                          placeholder="kg"
-                          placeholderTextColor="#6B7280"
-                          value={set.weight}
-                          onChangeText={(value) =>
-                            updateSet(index, setIndex, 'weight', value)
-                          }
-                          keyboardType="numeric"
-                        />
-                        <Text style={styles.setInputUnit}>kg</Text>
-                      </View>
-                      <Text style={styles.setInputDivider}>×</Text>
-                      <View style={styles.setInputGroup}>
-                        <TextInput
-                          style={styles.setInput}
-                          placeholder="reps"
-                          placeholderTextColor="#6B7280"
-                          value={set.reps}
-                          onChangeText={(value) =>
-                            updateSet(index, setIndex, 'reps', value)
-                          }
-                          keyboardType="numeric"
-                        />
-                        <Text style={styles.setInputUnit}>rep</Text>
-                      </View>
-                    </View>
-                  </View>
-                ))}
-              </View>
+              {/* Sets details inputs removed as per user request (template mode) */}
             </View>
           ))}
 

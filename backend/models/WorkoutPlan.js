@@ -42,10 +42,6 @@ const workoutPlanSchema = new mongoose.Schema({
     enum: ['Szablon', 'Własny'],
     default: 'Własny',
   },
-  isActive: {
-    type: Boolean,
-    default: false,
-  },
   isGenerated: {
     type: Boolean,
     default: false,
