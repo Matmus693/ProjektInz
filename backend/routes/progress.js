@@ -4,7 +4,6 @@ const Workout = require('../models/Workout');
 const auth = require('../middleware/auth');
 const router = express.Router();
 
-// Pobierz postęp użytkownika
 router.get('/', auth, async (req, res) => {
   try {
     let progress = await Progress.findOne({ userId: req.user._id });
@@ -21,7 +20,6 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
-// Dodaj wpis wagi ciała
 router.post('/weight', auth, async (req, res) => {
   try {
     const { date, weight } = req.body;
@@ -48,7 +46,6 @@ router.post('/weight', auth, async (req, res) => {
   }
 });
 
-// Aktualizuj wymiary ciała
 router.put('/measurements', auth, async (req, res) => {
   try {
     const { chest, waist, biceps, thighs } = req.body;
@@ -67,7 +64,6 @@ router.put('/measurements', auth, async (req, res) => {
       lastUpdate: new Date().toISOString().split('T')[0],
     };
 
-    // Dodaj do historii pomiarów
     if (!progress.measurementsHistory) {
       progress.measurementsHistory = [];
     }
@@ -78,7 +74,7 @@ router.put('/measurements', auth, async (req, res) => {
       biceps: progress.measurements.biceps,
       thighs: progress.measurements.thighs
     });
-    // Sortuj malejąco po dacie
+    
     progress.measurementsHistory.sort((a, b) => new Date(b.date) - new Date(a.date));
 
     await progress.save();
@@ -90,7 +86,6 @@ router.put('/measurements', auth, async (req, res) => {
   }
 });
 
-// Ustaw cel wagowy
 router.put('/target-weight', auth, async (req, res) => {
   try {
     const { targetWeight } = req.body;
@@ -112,16 +107,14 @@ router.put('/target-weight', auth, async (req, res) => {
   }
 });
 
-// Pobierz ostatnią wagę użytkownika
 router.get('/latest-weight', auth, async (req, res) => {
   try {
     let progress = await Progress.findOne({ userId: req.user._id });
 
     if (!progress || !progress.weight || progress.weight.length === 0) {
-      return res.json({ weight: 75 }); // Waga domyślna
+      return res.json({ weight: 75 });
     }
 
-    // Weź najnowszy wpis
     const latestWeight = progress.weight[0];
     res.json({ weight: latestWeight.weight });
   } catch (error) {
@@ -130,7 +123,6 @@ router.get('/latest-weight', auth, async (req, res) => {
   }
 });
 
-// Usuń wpis wagi
 router.delete('/weight/:weightId', auth, async (req, res) => {
   try {
     const { weightId } = req.params;
@@ -151,7 +143,6 @@ router.delete('/weight/:weightId', auth, async (req, res) => {
   }
 });
 
-// Pobierz statystyki
 router.get('/stats', auth, async (req, res) => {
   try {
     const now = new Date();
@@ -177,7 +168,7 @@ router.get('/stats', auth, async (req, res) => {
           totalVolume += weight * reps;
         });
       });
-      // Parsuj czas trwania (np. "52 min" -> 52)
+      
       const durationMatch = workout.duration?.match(/(\d+)/);
       if (durationMatch) {
         totalDuration += parseInt(durationMatch[1]);
@@ -186,9 +177,6 @@ router.get('/stats', auth, async (req, res) => {
 
     const avgWorkoutDuration = totalWorkouts > 0 ? Math.round(totalDuration / totalWorkouts) : 0;
 
-
-
-    // Statystyki poprzedniego miesiąca
     const startOfPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const endOfPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
     const startOfPrevMonthStr = startOfPrevMonth.toISOString().split('T')[0];
@@ -240,16 +228,14 @@ router.get('/stats', auth, async (req, res) => {
   }
 });
 
-// Pobierz postęp dla konkretnego ćwiczenia
 router.get('/exercise/:name', auth, async (req, res) => {
   try {
     const exerciseName = req.params.name;
 
-    // Znajdź wszystkie treningi użytkownika zawierające to ćwiczenie
     const workouts = await Workout.find({
       userId: req.user._id,
       'exercises.name': exerciseName,
-    }).sort({ date: 1 }); // Sortuj rosnąco po dacie
+    }).sort({ date: 1 });
 
     const history = [];
 
@@ -258,7 +244,7 @@ router.get('/exercise/:name', auth, async (req, res) => {
       if (ex) {
         let maxWeight = 0;
         let volume = 0;
-        let oneRepMax = 0; // Szacowane 1RM
+        let oneRepMax = 0;
 
         ex.sets.forEach((s) => {
           const weight = parseFloat(s.weight || 0);
@@ -267,8 +253,6 @@ router.get('/exercise/:name', auth, async (req, res) => {
           if (weight > maxWeight) maxWeight = weight;
           volume += weight * reps;
 
-          // Wylicz 1RM używając wzoru Epleya: waga * (1 + powtórzenia/30)
-          // Tylko gdy są poprawne dane
           if (reps > 0 && weight > 0) {
             const estimated1RM = weight * (1 + reps / 30);
             if (estimated1RM > oneRepMax) oneRepMax = estimated1RM;
@@ -279,7 +263,7 @@ router.get('/exercise/:name', auth, async (req, res) => {
           date: w.date,
           maxWeight,
           volume,
-          oneRepMax: Math.round(oneRepMax * 10) / 10, // Zaokrąglij do 1 miejsca po przecinku
+          oneRepMax: Math.round(oneRepMax * 10) / 10,
         });
       }
     });
@@ -289,13 +273,10 @@ router.get('/exercise/:name', auth, async (req, res) => {
     const current1RM = history.length > 0 ? history[history.length - 1].oneRepMax : 0;
     const previous1RM = history.length > 1 ? history[history.length - 2].oneRepMax : 0;
 
-    // Max Volume (największa objętość w jednej sesji)
     const maxVolume = history.length > 0 ? Math.max(...history.map(h => h.volume)) : 0;
 
-    // All-Time Max Weight (Rekord życiowy)
     const allTimeMax = history.length > 0 ? Math.max(...history.map(h => h.maxWeight)) : 0;
 
-    // All-Time 1RM (Rekord 1RM)
     const allTime1RM = history.length > 0 ? Math.max(...history.map(h => h.oneRepMax)) : 0;
 
     const sessions = history.length;

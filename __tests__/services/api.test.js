@@ -1,10 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ApiService from '../../services/api';
 
-/**
- * Testy jednostkowe serwisu API (White-box testing)
- */
-
 global.fetch = jest.fn();
 
 describe('ApiService - Testy Jednostkowe', () => {

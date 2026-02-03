@@ -1,9 +1,6 @@
 const Exercise = require('../../models/Exercise');
 const { createTestExercise } = require('../setup');
 
-/**
- * Testy jednostkowe modelu Exercise (White-box testing)
- */
 describe('Model Exercise - Testy Jednostkowe', () => {
 
     describe('Walidacja pól wymaganych', () => {
@@ -35,7 +32,7 @@ describe('Model Exercise - Testy Jednostkowe', () => {
         const validGroups = ['Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Core', 'Full Body', 'Other'];
 
         test('powinien zaakceptować wszystkie poprawne grupy mięśniowe', async () => {
-            for (const group of validGroups.slice(0, 3)) { // Test tylko pierwsze 3
+            for (const group of validGroups.slice(0, 3)) {
                 const exercise = await createTestExercise({
                     name: `Test ${group}`,
                     muscleGroup: group

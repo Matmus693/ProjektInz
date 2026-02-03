@@ -3,7 +3,6 @@ const WorkoutPlan = require('../models/WorkoutPlan');
 const auth = require('../middleware/auth');
 const router = express.Router();
 
-// Wypełnij domyślnymi planami dla użytkownika
 router.post('/seed', async (req, res) => {
   try {
     const { userId } = req.body;
@@ -65,7 +64,6 @@ router.post('/seed', async (req, res) => {
   }
 });
 
-// Pobierz szablony planów dla użytkownika
 router.get('/templates', auth, async (req, res) => {
   try {
     const templates = await WorkoutPlan.find({
@@ -79,7 +77,6 @@ router.get('/templates', auth, async (req, res) => {
   }
 });
 
-// Pobierz wszystkie plany treningowe użytkownika
 router.get('/', auth, async (req, res) => {
   try {
     const plans = await WorkoutPlan.find({ userId: req.user._id })
@@ -91,7 +88,6 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
-// Pobierz pojedynczy plan treningowy
 router.get('/:id', auth, async (req, res) => {
   try {
     const plan = await WorkoutPlan.findOne({
@@ -110,7 +106,6 @@ router.get('/:id', auth, async (req, res) => {
   }
 });
 
-// Utwórz plan treningowy
 router.post('/', auth, async (req, res) => {
   try {
     const planData = {
@@ -128,7 +123,6 @@ router.post('/', auth, async (req, res) => {
   }
 });
 
-// Zaktualizuj plan treningowy
 router.put('/:id', auth, async (req, res) => {
   try {
     const plan = await WorkoutPlan.findOneAndUpdate(
@@ -148,7 +142,6 @@ router.put('/:id', auth, async (req, res) => {
   }
 });
 
-// Usuń plan treningowy
 router.delete('/:id', auth, async (req, res) => {
   try {
     const plan = await WorkoutPlan.findOneAndDelete({

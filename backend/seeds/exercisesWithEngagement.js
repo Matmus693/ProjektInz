@@ -3,7 +3,7 @@ const Exercise = require('../models/Exercise');
 require('dotenv').config();
 
 const exercises = [
-    // ===== CHEST EXERCISES =====
+    
     {
         name: 'Barbell Bench Press',
         muscleGroup: 'Chest',
@@ -80,7 +80,6 @@ const exercises = [
         }
     },
 
-    // ===== BACK EXERCISES =====
     {
         name: 'Deadlift',
         muscleGroup: 'Back',
@@ -158,7 +157,6 @@ const exercises = [
         }
     },
 
-    // ===== LEG EXERCISES =====
     {
         name: 'Barbell Squat',
         muscleGroup: 'Legs',
@@ -243,7 +241,6 @@ const exercises = [
         }
     },
 
-    // ===== SHOULDER EXERCISES =====
     {
         name: 'Overhead Press',
         muscleGroup: 'Shoulders',
@@ -311,7 +308,6 @@ const exercises = [
         }
     },
 
-    // ===== ARM EXERCISES =====
     {
         name: 'Barbell Curl',
         muscleGroup: 'Arms',
@@ -390,7 +386,6 @@ const exercises = [
         }
     },
 
-    // ===== CORE EXERCISES =====
     {
         name: 'Planks',
         muscleGroup: 'Core',
@@ -451,15 +446,12 @@ async function seedExercises() {
         await mongoose.connect(process.env.MONGODB_URI);
         console.log('✓ Connected to MongoDB');
 
-        // Clear existing exercises
         await Exercise.deleteMany({});
         console.log('✓ Cleared existing exercises');
 
-        // Insert new exercises
         const result = await Exercise.insertMany(exercises);
         console.log(`✓ Successfully seeded ${result.length} exercises with muscle engagement data`);
 
-        // Display summary
         const summary = exercises.reduce((acc, ex) => {
             acc[ex.muscleGroup] = (acc[ex.muscleGroup] || 0) + 1;
             return acc;
@@ -478,7 +470,6 @@ async function seedExercises() {
     }
 }
 
-// Run if called directly
 if (require.main === module) {
     seedExercises();
 }

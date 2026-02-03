@@ -31,7 +31,6 @@ const HomeScreen = ({ navigation }) => {
     try {
       setLoading(true);
 
-      // Pobierz dane użytkownika
       const userData = await api.getUser();
       if (userData && userData.username) {
         setUsername(userData.username);
@@ -44,7 +43,6 @@ const HomeScreen = ({ navigation }) => {
         setMonthlyStats(stats);
       }
 
-      // 2. Pobierz ostatni trening
       const workouts = await api.getWorkouts();
       if (workouts && workouts.length > 0) {
         setLastWorkout(workouts[0]); // Sortowane po dacie malejąco w backendzie
@@ -52,7 +50,6 @@ const HomeScreen = ({ navigation }) => {
         setLastWorkout(null);
       }
 
-      // 3. Pobierz Insight (rekomendację)
       const insightData = await api.getInsight();
       if (insightData) {
         setInsight({
@@ -201,7 +198,6 @@ const HomeScreen = ({ navigation }) => {
 
               <View style={styles.exercisesList}>
                 {(lastWorkout.exercises || []).slice(0, 3).map((exercise, index) => {
-                  // Oblicz średnie statystyki
                   const validSets = exercise.sets.filter(s => s.weight && s.reps);
                   const avgWeight = validSets.length > 0
                     ? validSets.reduce((sum, set) => sum + parseFloat(set.weight || 0), 0) / validSets.length

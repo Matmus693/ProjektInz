@@ -3,19 +3,15 @@ const mongoose = require('mongoose');
 
 let mongoServer;
 
-// Konfiguracja przed wszystkimi testami
 beforeAll(async () => {
     try {
-        // Uruchom serwer MongoDB w pamięci
         mongoServer = await MongoMemoryServer.create();
         const mongoUri = mongoServer.getUri();
 
-        // Rozłącz się z istniejącym połączeniem (jeśli istnieje)
         if (mongoose.connection.readyState !== 0) {
             await mongoose.disconnect();
         }
 
-        // Połącz się z testową bazą danych
         await mongoose.connect(mongoUri, {
             useNewUrlParser: true,
             useUnifiedTopology: true,
@@ -28,12 +24,10 @@ beforeAll(async () => {
     }
 });
 
-// Czyszczenie po każdym teście
 afterEach(async () => {
     try {
         const collections = mongoose.connection.collections;
 
-        // Wyczyść wszystkie kolekcje
         for (const key in collections) {
             await collections[key].deleteMany();
         }
@@ -43,13 +37,10 @@ afterEach(async () => {
     }
 });
 
-// Sprzątanie po wszystkich testach
 afterAll(async () => {
     try {
-        // Rozłącz się z bazą danych
         await mongoose.disconnect();
 
-        // Zatrzymaj serwer MongoDB
         if (mongoServer) {
             await mongoServer.stop();
         }
@@ -61,11 +52,6 @@ afterAll(async () => {
     }
 });
 
-// Funkcje pomocnicze dla testów
-
-/**
- * Tworzy testowego użytkownika
- */
 const createTestUser = async (userData = {}) => {
     const User = require('../models/User');
     const bcrypt = require('bcryptjs');
@@ -80,9 +66,6 @@ const createTestUser = async (userData = {}) => {
     return await User.create(defaultUser);
 };
 
-/**
- * Generuje token JWT dla testowego użytkownika
- */
 const generateTestToken = (userId) => {
     const jwt = require('jsonwebtoken');
     return jwt.sign({ userId }, process.env.JWT_SECRET || 'test-secret-key', {
@@ -90,13 +73,10 @@ const generateTestToken = (userId) => {
     });
 };
 
-/**
- * Tworzy testowe ćwiczenie
- */
 const createTestExercise = async (overrides = {}) => {
     const defaultExercise = {
         name: `Test Exercise ${Date.now()}`,
-        muscleGroup: 'Chest', // Poprawiona wielka litera
+        muscleGroup: 'Chest',
         ...overrides,
     };
 
@@ -105,7 +85,6 @@ const createTestExercise = async (overrides = {}) => {
     return exercise;
 };
 
-// Eksportuj funkcje pomocnicze
 module.exports = {
     createTestUser,
     generateTestToken,

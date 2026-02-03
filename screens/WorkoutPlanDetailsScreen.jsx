@@ -17,7 +17,6 @@ const WorkoutPlanDetailsScreen = ({ navigation, route }) => {
   const totalSets = planExercises.reduce((sum, ex) => sum + (ex.numSets || 0), 0);
 
   const handleStartWorkout = () => {
-    // Tutaj można przekazać plan jako bazę do nowej sesji treningowej
     navigation.navigate('WorkoutEditor', { templatePlan: plan });
   };
 
@@ -29,7 +28,7 @@ const WorkoutPlanDetailsScreen = ({ navigation, route }) => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
 
-      {/* Header */}
+      {}
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
@@ -51,7 +50,7 @@ const WorkoutPlanDetailsScreen = ({ navigation, route }) => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Plan Info */}
+        {}
         <View style={styles.planInfoCard}>
           <Text style={styles.planName}>{plan?.name || 'Push'}</Text>
           <Text style={styles.planDescription}>
@@ -75,7 +74,7 @@ const WorkoutPlanDetailsScreen = ({ navigation, route }) => {
           </View>
         </View>
 
-        {/* Exercises List */}
+        {}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>ĆWICZENIA</Text>
 
@@ -89,7 +88,7 @@ const WorkoutPlanDetailsScreen = ({ navigation, route }) => {
           ))}
         </View>
 
-        {/* Start Workout Button */}
+        {}
         <TouchableOpacity
           style={styles.startButton}
           onPress={handleStartWorkout}

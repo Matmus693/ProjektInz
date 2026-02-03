@@ -14,8 +14,6 @@ import {
   FlatList,
 } from 'react-native';
 
-
-
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../services/api';
 import { MUSCLE_GROUPS } from '../constants/MuscleAnatomy';
@@ -24,17 +22,14 @@ const TEMP_USER_ID = '65a000000000000000000001';
 
 const WorkoutPlanEditorScreen = ({ navigation, route }) => {
   const isEditing = route?.params?.plan !== undefined;
-  // Handle suggestion passing type or full plan
   const existingPlan = route?.params?.plan;
-  const suggestedType = route?.params?.type; // validation: from insights
+  const suggestedType = route?.params?.type;
 
   const [planName, setPlanName] = useState(existingPlan?.name || (suggestedType ? `${suggestedType} Plan` : ''));
   const [planDescription, setPlanDescription] = useState(
     existingPlan?.description || ''
   );
-  const [exercises, setExercises] = useState(existingPlan?.exercises || []); // Aligned to backend schema
-  // Backend schema: exercises: [{name, numSets, sets: [{weight, reps}] }]
-  // Let's assume we align to backend schema now.
+  const [exercises, setExercises] = useState(existingPlan?.exercises || []);
 
   const [availableExercises, setAvailableExercises] = useState([]);
   const [loadingExercises, setLoadingExercises] = useState(false);
@@ -42,13 +37,11 @@ const WorkoutPlanEditorScreen = ({ navigation, route }) => {
   const [exerciseFilter, setExerciseFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [saving, setSaving] = useState(false);
-
-  // Exercise Creation
-  const [exerciseModalTab, setExerciseModalTab] = useState('list'); // 'list' or 'create'
+  const [exerciseModalTab, setExerciseModalTab] = useState('list');
   const [newExerciseName, setNewExerciseName] = useState('');
   const [newExerciseMuscle, setNewExerciseMuscle] = useState('Chest');
   const [selectedSubMuscles, setSelectedSubMuscles] = useState([]);
-  const [selectedSecondaryMuscles, setSelectedSecondaryMuscles] = useState({}); // { groupName: [subMuscleIds] }
+  const [selectedSecondaryMuscles, setSelectedSecondaryMuscles] = useState({});
   const [expandedSecondaryGroups, setExpandedSecondaryGroups] = useState([]);
   const [creatingExercise, setCreatingExercise] = useState(false);
   const [isBodyweight, setIsBodyweight] = useState(false);
@@ -62,8 +55,6 @@ const WorkoutPlanEditorScreen = ({ navigation, route }) => {
       setLoadingExercises(true);
 
       let data = await api.getExercises();
-
-      // Auto-seed if empty (optional safety)
       if (data && data.length === 0) {
         await api.seedExercises();
         data = await api.getExercises();
@@ -74,7 +65,6 @@ const WorkoutPlanEditorScreen = ({ navigation, route }) => {
       }
     } catch (err) {
       console.log('Error fetching exercises', err);
-      // Fallback or alert
     } finally {
       setLoadingExercises(false);
     }
@@ -129,8 +119,6 @@ const WorkoutPlanEditorScreen = ({ navigation, route }) => {
       Alert.alert('Błąd', 'Podaj nazwę ćwiczenia');
       return;
     }
-
-    // Validate primary sub-muscles (required, except for Full Body)
     if (newExerciseMuscle !== 'Full Body' && selectedSubMuscles.length === 0) {
       Alert.alert('Błąd', 'Zaznacz przynajmniej jedną część mięśnia');
       return;
@@ -138,16 +126,12 @@ const WorkoutPlanEditorScreen = ({ navigation, route }) => {
 
     try {
       setCreatingExercise(true);
-
-      // Construct muscleEngagement
       const engagement = {};
       if (selectedSubMuscles.length > 0) {
         selectedSubMuscles.forEach(sub => {
           engagement[sub] = 100;
         });
       }
-
-      // Build secondaryMuscles with sub-muscle details
       const secondaryMusclesPayload = Object.entries(selectedSecondaryMuscles).map(([group, subIds]) => ({
         group,
         subMuscles: subIds
@@ -167,7 +151,6 @@ const WorkoutPlanEditorScreen = ({ navigation, route }) => {
       if (created) {
         setAvailableExercises([...availableExercises, created]);
         addExerciseFromBase(created);
-        // Reset form
         setNewExerciseName('');
         setNewExerciseMuscle('Chest');
         setSelectedSubMuscles([]);
@@ -195,7 +178,6 @@ const WorkoutPlanEditorScreen = ({ navigation, route }) => {
           onPress: async () => {
             try {
               await api.deleteExercise(id);
-              // Remove from list
               setAvailableExercises(prev => prev.filter(e => e._id !== id));
             } catch (err) {
               console.error(err);
@@ -211,7 +193,6 @@ const WorkoutPlanEditorScreen = ({ navigation, route }) => {
     try {
       setLoadingExercises(true);
       await api.repairExercises();
-      // Refresh
       fetchExercises();
       Alert.alert('Sukces', 'Baza ćwiczeń została naprawiona');
     } catch (err) {
@@ -225,12 +206,11 @@ const WorkoutPlanEditorScreen = ({ navigation, route }) => {
   const addExerciseFromBase = async (exerciseDef) => {
 
     const timestamp = Date.now();
-    // Default sets
     let initialSets = [
       { id: `${timestamp}_0`, weight: '', reps: '' },
       { id: `${timestamp}_1`, weight: '', reps: '' }
     ];
-    let initialNumSets = 2; // Default for plans? or 3
+    let initialNumSets = 2;
 
     try {
       const history = await api.getLastExerciseLog(exerciseDef.name);
@@ -247,8 +227,7 @@ const WorkoutPlanEditorScreen = ({ navigation, route }) => {
     }
 
     const newExercise = {
-      // If we are using MongoDB embedded docs, id might be _id, but for frontend list key we use timestamp or random
-      localId: `${timestamp}_ex`, // Used for rendering key
+      localId: `${timestamp}_ex`,
       name: exerciseDef.name,
       muscleGroup: exerciseDef.muscleGroup,
       numSets: initialNumSets,
@@ -260,14 +239,11 @@ const WorkoutPlanEditorScreen = ({ navigation, route }) => {
     setShowExerciseModal(false);
   };
 
-
-
   const removeExercise = (indexToRemove) => {
     setExercises(exercises.filter((_, index) => index !== indexToRemove));
   };
 
   const updateExerciseName = (index, name) => {
-    // Just for manual override if needed
     const updated = [...exercises];
     updated[index].name = name;
     setExercises(updated);
@@ -281,7 +257,6 @@ const WorkoutPlanEditorScreen = ({ navigation, route }) => {
     const currentSets = updated[index].sets;
     const newSets = [];
     for (let i = 0; i < num; i++) {
-      // preserve existing values if increasing count
       if (i < currentSets.length) {
         newSets.push(currentSets[i]);
       } else {
@@ -319,7 +294,7 @@ const WorkoutPlanEditorScreen = ({ navigation, route }) => {
           numSets: ex.numSets,
           sets: ex.sets.map(s => ({ weight: s.weight, reps: s.reps }))
         })),
-        type: 'Szablon', // User-created plans are templates
+        type: 'Szablon',
       };
 
       let response;
@@ -327,11 +302,8 @@ const WorkoutPlanEditorScreen = ({ navigation, route }) => {
       if (isEditing) {
         response = await api.updateWorkoutPlan(existingPlan._id, payload);
       } else {
-        // api.createWorkoutPlan returns the data directly if successful, or throws
         response = await api.createWorkoutPlan(payload);
       }
-
-      // If we reach here, it means success (since api.js throws on error)
       Alert.alert('Sukces', 'Plan został zapisany', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
@@ -453,7 +425,7 @@ const WorkoutPlanEditorScreen = ({ navigation, route }) => {
                 />
               </View>
 
-              {/* Sets details inputs removed as per user request (template mode) */}
+              {}
             </View>
           ))}
 
@@ -469,7 +441,7 @@ const WorkoutPlanEditorScreen = ({ navigation, route }) => {
         </View>
       </ScrollView>
 
-      {/* Exercise Picker Modal */}
+      {}
       <Modal
         visible={showExerciseModal}
         animationType="slide"
@@ -484,7 +456,7 @@ const WorkoutPlanEditorScreen = ({ navigation, route }) => {
             </TouchableOpacity>
           </View>
 
-          {/* Tabs */}
+          {}
           <View style={styles.modalTabs}>
             <TouchableOpacity
               style={[styles.modalTab, exerciseModalTab === 'list' && styles.modalTabActive]}
@@ -506,7 +478,7 @@ const WorkoutPlanEditorScreen = ({ navigation, route }) => {
 
           {exerciseModalTab === 'list' ? (
             <>
-              {/* Search Bar */}
+              {}
               <View style={{ paddingHorizontal: 20, marginBottom: 12 }}>
                 <TextInput
                   style={{
@@ -526,7 +498,7 @@ const WorkoutPlanEditorScreen = ({ navigation, route }) => {
                 />
               </View>
 
-              {/* Muscle Group Filters */}
+              {}
               <View style={{ marginBottom: 10 }}>
                 <ScrollView
                   horizontal
@@ -585,7 +557,7 @@ const WorkoutPlanEditorScreen = ({ navigation, route }) => {
                         <Text style={styles.addIcon}>+</Text>
                       </TouchableOpacity>
 
-                      {/* Delete button for custom exercises */}
+                      {}
                       {item.isCustom && (
                         <TouchableOpacity
                           style={styles.deleteExerciseButton}
@@ -599,7 +571,7 @@ const WorkoutPlanEditorScreen = ({ navigation, route }) => {
                 />
               )}
 
-              {/* Repair Button (Temporary/Utility) */}
+              {}
               {exerciseModalTab === 'list' && (
                 <TouchableOpacity
                   style={{ alignItems: 'center', padding: 15 }}
@@ -620,7 +592,7 @@ const WorkoutPlanEditorScreen = ({ navigation, route }) => {
                 onChangeText={setNewExerciseName}
               />
 
-              {/* Bodyweight Checkbox */}
+              {}
               <TouchableOpacity
                 style={{
                   flexDirection: 'row',
@@ -677,7 +649,7 @@ const WorkoutPlanEditorScreen = ({ navigation, route }) => {
                 ))}
               </View>
 
-              {/* Sub-Muscles Section */}
+              {}
               {MUSCLE_GROUPS[newExerciseMuscle]?.subMuscles?.length > 0 && (
                 <>
                   <Text style={[styles.label, { marginTop: 20 }]}>ANGAŻOWANE CZĘŚCI (WYMAGANE)</Text>
@@ -704,13 +676,13 @@ const WorkoutPlanEditorScreen = ({ navigation, route }) => {
                 </>
               )}
 
-              {/* Secondary Muscle Groups Section */}
+              {}
               <Text style={[styles.label, { marginTop: 20 }]}>DODATKOWE MIĘŚNIE (OPCJONALNE)</Text>
               <Text style={{ color: '#64748B', fontSize: 12, marginBottom: 10 }}>
                 Rozwiń grupę i zaznacz konkretne części wspomagające
               </Text>
               {Object.keys(MUSCLE_GROUPS)
-                .filter(key => key !== newExerciseMuscle && key !== 'Full Body') // Exclude primary and Full Body
+                .filter(key => key !== newExerciseMuscle && key !== 'Full Body')
                 .map((groupKey) => {
                   const groupData = MUSCLE_GROUPS[groupKey];
                   const isExpanded = expandedSecondaryGroups.includes(groupKey);
@@ -718,7 +690,7 @@ const WorkoutPlanEditorScreen = ({ navigation, route }) => {
 
                   return (
                     <View key={groupKey} style={{ marginBottom: 12 }}>
-                      {/* Group Header */}
+                      {}
                       <TouchableOpacity
                         style={[
                           styles.filterChip,
@@ -733,7 +705,7 @@ const WorkoutPlanEditorScreen = ({ navigation, route }) => {
                         <Text style={{ color: '#8B5CF6', fontSize: 16 }}>{isExpanded ? '▼' : '▶'}</Text>
                       </TouchableOpacity>
 
-                      {/* Sub-muscles (if expanded) */}
+                      {}
                       {isExpanded && groupData.subMuscles && groupData.subMuscles.length > 0 && (
                         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8, paddingLeft: 10 }}>
                           {groupData.subMuscles.map((sub) => {
@@ -1051,7 +1023,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#334155',
-    flex: 1, // Take remaining space
+    flex: 1,
   },
   exerciseOptionRow: {
     flexDirection: 'row',

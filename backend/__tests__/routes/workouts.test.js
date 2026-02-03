@@ -10,9 +10,6 @@ app.use('/api/workouts', workoutsRouter);
 
 process.env.JWT_SECRET = 'test-secret-key';
 
-/**
- * Testy integracyjne tras treningów (Black-box testing)
- */
 describe('Trasy Workouts - Testy Integracyjne', () => {
 
     let testUser;

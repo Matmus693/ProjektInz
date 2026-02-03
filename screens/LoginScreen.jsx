@@ -44,13 +44,13 @@ const LoginScreen = ({ navigation }) => {
         style={styles.keyboardView}
       >
         <View style={styles.content}>
-          {/* Logo/Nagłówek */}
+          {}
           <View style={styles.header}>
             <Text style={styles.logo}>StillResting</Text>
             <Text style={styles.tagline}>Track Your Progress</Text>
           </View>
 
-          {/* Formularz */}
+          {}
           <View style={styles.form}>
             <View style={styles.inputContainer}>
               <Text style={styles.label}>EMAIL</Text>
@@ -98,7 +98,7 @@ const LoginScreen = ({ navigation }) => {
             </TouchableOpacity>
           </View>
 
-          {/* Stopka */}
+          {}
           <View style={styles.footer}>
             <Text style={styles.footerText}>Don't have an account? </Text>
             <TouchableOpacity onPress={() => navigation.navigate('Register')}>

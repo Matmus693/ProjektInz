@@ -2,9 +2,6 @@ const mongoose = require('mongoose');
 const User = require('../../models/User');
 const { createTestUser } = require('../setup');
 
-/**
- * Testy jednostkowe modelu User (White-box testing)
- */
 describe('Model User - Testy Jednostkowe', () => {
 
     describe('Tworzenie użytkownika', () => {
@@ -20,7 +17,7 @@ describe('Model User - Testy Jednostkowe', () => {
             expect(user._id).toBeDefined();
             expect(user.username).toBe(userData.username);
             expect(user.email).toBe(userData.email.toLowerCase());
-            expect(user.password).not.toBe(userData.password); // Powinno być zahashowane
+            expect(user.password).not.toBe(userData.password);
         });
 
         test('powinien wymagać wszystkich pól', async () => {
@@ -32,7 +29,7 @@ describe('Model User - Testy Jednostkowe', () => {
             const user = new User({
                 username: 'test',
                 email: 'test@example.com',
-                password: '12345', // Za krótkie
+                password: '12345',
             });
             await expect(user.save()).rejects.toThrow();
         });

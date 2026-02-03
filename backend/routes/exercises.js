@@ -1,7 +1,6 @@
 const router = require('express').Router();
 const Exercise = require('../models/Exercise');
 
-// Pobierz wszystkie ćwiczenia
 router.get('/', async (req, res) => {
     try {
         const exercises = await Exercise.find().sort({ name: 1 });
@@ -11,17 +10,16 @@ router.get('/', async (req, res) => {
     }
 });
 
-// Endpoint 'seed' do wstępnego wypełnienia bazy (uruchom raz)
 router.post('/seed', async (req, res) => {
     try {
-        // Sprawdź czy baza jest już pełna
+        
         const count = await Exercise.countDocuments();
         if (count > 0) {
             return res.status(400).json({ message: 'Database already seeded' });
         }
 
         const seedData = [
-            // PUSH
+            
             {
                 name: 'Bench Press',
                 muscleGroup: 'Chest',
@@ -77,7 +75,6 @@ router.post('/seed', async (req, res) => {
                 difficulty: 3
             },
 
-            // PULL
             {
                 name: 'Deadlift',
                 muscleGroup: 'Back',
@@ -133,7 +130,6 @@ router.post('/seed', async (req, res) => {
                 difficulty: 2
             },
 
-            // LEGS
             {
                 name: 'Squat',
                 muscleGroup: 'Legs',
@@ -189,7 +185,6 @@ router.post('/seed', async (req, res) => {
                 difficulty: 1
             },
 
-            // OTHER
             {
                 name: 'Plank',
                 muscleGroup: 'Core',
@@ -200,7 +195,6 @@ router.post('/seed', async (req, res) => {
             }
         ];
 
-        // Zaznacz, że to ćwiczenia systemowe (nie użytkownika)
         const finalSeedData = seedData.map(ex => ({ ...ex, isCustom: false }));
 
         await Exercise.insertMany(finalSeedData);
@@ -210,11 +204,10 @@ router.post('/seed', async (req, res) => {
     }
 });
 
-// Napraw/Przywróć ćwiczenia systemowe
 router.post('/repair', async (req, res) => {
     try {
         const seedData = [
-            // PUSH
+            
             {
                 name: 'Bench Press',
                 muscleGroup: 'Chest',
@@ -269,7 +262,7 @@ router.post('/repair', async (req, res) => {
                 equipment: 'Cable',
                 difficulty: 3
             },
-            // PULL
+            
             {
                 name: 'Deadlift',
                 muscleGroup: 'Back',
@@ -324,7 +317,7 @@ router.post('/repair', async (req, res) => {
                 equipment: 'Dumbbell',
                 difficulty: 2
             },
-            // LEGS
+            
             {
                 name: 'Squat',
                 muscleGroup: 'Legs',
@@ -379,7 +372,7 @@ router.post('/repair', async (req, res) => {
                 equipment: 'Machine',
                 difficulty: 1
             },
-            // OTHER
+            
             {
                 name: 'Plank',
                 muscleGroup: 'Core',
@@ -407,7 +400,6 @@ router.post('/repair', async (req, res) => {
     }
 });
 
-// Dodaj nowe ćwiczenie
 router.post('/', async (req, res) => {
     const exerciseData = { ...req.body, isCustom: true };
     const exercise = new Exercise(exerciseData);
@@ -419,15 +411,12 @@ router.post('/', async (req, res) => {
     }
 });
 
-// Usuń ćwiczenie
 router.delete('/:id', async (req, res) => {
     try {
         const exercise = await Exercise.findById(req.params.id);
         if (!exercise) {
             return res.status(404).json({ message: 'Exercise not found' });
         }
-
-
 
         await Exercise.findByIdAndDelete(req.params.id);
         res.json({ message: 'Exercise deleted' });

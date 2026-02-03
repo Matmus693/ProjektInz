@@ -13,40 +13,35 @@ const exerciseSchema = new mongoose.Schema({
         enum: ['Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Core', 'Full Body', 'Other'],
     },
     muscleEngagement: {
-        // Chest (0-100%)
+        
         upperChest: { type: Number, default: 0, min: 0, max: 100 },
         middleChest: { type: Number, default: 0, min: 0, max: 100 },
         lowerChest: { type: Number, default: 0, min: 0, max: 100 },
 
-        // Back (0-100%)
         backWidth: { type: Number, default: 0, min: 0, max: 100 },
         backMiddle: { type: Number, default: 0, min: 0, max: 100 },
         backLower: { type: Number, default: 0, min: 0, max: 100 },
 
-        // Shoulders (0-100%)
         frontDelts: { type: Number, default: 0, min: 0, max: 100 },
         sideDelts: { type: Number, default: 0, min: 0, max: 100 },
         rearDelts: { type: Number, default: 0, min: 0, max: 100 },
 
-        // Arms (0-100%)
         biceps: { type: Number, default: 0, min: 0, max: 100 },
         triceps: { type: Number, default: 0, min: 0, max: 100 },
         forearms: { type: Number, default: 0, min: 0, max: 100 },
 
-        // Legs (0-100%)
         quads: { type: Number, default: 0, min: 0, max: 100 },
         hamstrings: { type: Number, default: 0, min: 0, max: 100 },
         glutes: { type: Number, default: 0, min: 0, max: 100 },
         calves: { type: Number, default: 0, min: 0, max: 100 },
 
-        // Core (0-100%)
         upperAbs: { type: Number, default: 0, min: 0, max: 100 },
         lowerAbs: { type: Number, default: 0, min: 0, max: 100 },
         obliques: { type: Number, default: 0, min: 0, max: 100 }
     },
     secondaryMuscles: [{
-        group: { type: String }, // e.g., "Arms"
-        subMuscles: [{ type: String }] // e.g., ["triceps", "biceps"]
+        group: { type: String },
+        subMuscles: [{ type: String }]
     }],
     type: {
         type: String,

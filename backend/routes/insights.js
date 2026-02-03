@@ -5,21 +5,16 @@ const Exercise = require('../models/Exercise');
 const smartInsights = require('../services/smartInsights');
 const auth = require('../middleware/auth');
 
-// Zasugeruj inteligentny trening na podstawie historii
 router.get('/suggest', auth, async (req, res) => {
     try {
         const userId = req.user._id;
 
-        // Analizuj historię treningów (ostatnie dni)
         const { muscleStats, workoutCount } = await smartInsights.analyzeTrainingHistory(userId);
 
-        // Określ stan mięśni (przetrenowane, niedotrenowane, gotowe)
         const muscleStatus = smartInsights.identifyMuscleStatus(muscleStats);
 
-        // Wygeneruj rekomendację
         const recommendation = await smartInsights.generateRecommendation(userId, muscleStatus);
 
-        // Sformatuj odpowiedź w zależności od typu rekomendacji
         if (recommendation.type === 'existing_plan') {
             return res.json({
                 type: recommendation.plan.name,

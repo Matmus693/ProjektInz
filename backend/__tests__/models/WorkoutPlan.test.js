@@ -1,9 +1,6 @@
 const WorkoutPlan = require('../../models/WorkoutPlan');
 const { createTestUser } = require('../setup');
 
-/**
- * Testy jednostkowe modelu WorkoutPlan (White-box testing)
- */
 describe('Model WorkoutPlan - Testy Jednostkowe', () => {
 
     let testUser;

@@ -1,18 +1,11 @@
-/**
- * Proste testy API service - bez zewnętrznych zależności
- * Testują podstawową logikę i strukturę API
- */
-
 global.fetch = jest.fn();
 
-// Mock AsyncStorage
 const mockAsyncStorage = {
     getItem: jest.fn(),
     setItem: jest.fn(),
     removeItem: jest.fn(),
 };
 
-// Mock exports API service
 const ApiService = {
     API_URL: 'http://localhost:5000/api',
 

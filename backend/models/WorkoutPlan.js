@@ -45,14 +45,12 @@ const workoutPlanSchema = new mongoose.Schema({
   isGenerated: {
     type: Boolean,
     default: false,
-    // true = wygenerowany automatycznie (tymczasowy, można usunąć)
-    // false = stworzony przez użytkownika (trwały)
+
   },
   temporary: {
     type: Boolean,
     default: false,
-    // true = plan tymczasowy (usuwany po użyciu w treningu)
-    // false = plan stały (szablon)
+
   },
   exercises: [exerciseSchema],
 }, {

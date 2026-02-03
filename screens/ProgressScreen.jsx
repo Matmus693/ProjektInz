@@ -22,21 +22,15 @@ const ProgressScreen = ({ navigation }) => {
   const [progressData, setProgressData] = useState(null);
   const [stats, setStats] = useState(null);
   const [exercisesList, setExercisesList] = useState([]);
-
-  // Modals
   const [showWeightModal, setShowWeightModal] = useState(false);
   const [showMeasurementsModal, setShowMeasurementsModal] = useState(false);
   const [showExerciseModal, setShowExerciseModal] = useState(false);
   const [showTargetWeightModal, setShowTargetWeightModal] = useState(false);
-
-  // Form State
   const [newWeight, setNewWeight] = useState('');
   const [newTargetWeight, setNewTargetWeight] = useState('');
   const [measurementsDetails, setMeasurementsDetails] = useState({
     chest: '', waist: '', biceps: '', thighs: ''
   });
-
-  // Exercise Progress State
   const [selectedExercise, setSelectedExercise] = useState(null);
   const [exerciseProgress, setExerciseProgress] = useState(null);
   const [loadingExerciseStats, setLoadingExerciseStats] = useState(false);
@@ -47,12 +41,9 @@ const ProgressScreen = ({ navigation }) => {
   const fetchData = async () => {
     try {
       setLoading(true);
-
-      // 1. Fetch Main Progress (Weight, Measurements)
       const data = await api.getProgress();
       if (data) {
         setProgressData(data);
-        // Pre-fill measurements form
         if (data.measurements) {
           setMeasurementsDetails({
             chest: data.measurements.chest?.toString() || '',
@@ -62,14 +53,10 @@ const ProgressScreen = ({ navigation }) => {
           });
         }
       }
-
-      // 2. Fetch Monthly Stats
       const statsData = await api.getStats();
       if (statsData) {
         setStats(statsData);
       }
-
-      // 3. Fetch Exercises List (for picker)
       const exList = await api.getExercises();
       if (exList) {
         setExercisesList(exList);
@@ -93,12 +80,10 @@ const ProgressScreen = ({ navigation }) => {
     setSelectedExercise(exercise);
     setShowExerciseModal(false);
     setLoadingExerciseStats(true);
-    setExerciseProgress(null); // Clear previous
+    setExerciseProgress(null);
 
     try {
-      // Encoded name just in case
       const encodedName = encodeURIComponent(exercise.name);
-      // api.request doesn't have a shortcut for this yet, using generic request
       const data = await api.request(`/progress/exercise/${encodedName}`);
       if (data) {
         setExerciseProgress(data);
@@ -116,11 +101,10 @@ const ProgressScreen = ({ navigation }) => {
       return;
     }
     try {
-      // api.addWeight handles formatting
       await api.addWeight(new Date().toISOString().split('T')[0], newWeight);
       setNewWeight('');
       setShowWeightModal(false);
-      fetchData(); // Refresh
+      fetchData();
       Alert.alert('Sukces', 'Waga została dodana');
     } catch (err) {
       console.error(err);
@@ -186,34 +170,24 @@ const ProgressScreen = ({ navigation }) => {
       ]
     );
   };
-
-  // Helpers for display
   const currentWeight = progressData?.weight?.length > 0 ? progressData.weight[0].weight : '-';
   const targetWeight = progressData?.targetWeight || '-';
-
-  // Calculate weight change (latest vs previous)
   const getWeightChange = () => {
     const history = progressData?.weight || [];
     if (history.length < 2) return 0;
-    // Compare latest (index 0) with previous (index 1)
     return (history[0].weight - history[1].weight).toFixed(1);
   };
   const weightChange = getWeightChange();
-
-  // Helper for measurement diffs
   const getMeasurementDiff = (key) => {
     const history = progressData?.measurementsHistory || [];
     if (history.length < 2) return 0;
-    // index 0 is latest (we sorted in backend), index 1 is previous
     const diff = (history[0][key] || 0) - (history[1][key] || 0);
-    return diff % 1 !== 0 ? diff.toFixed(1) : diff; // integer or 1 decimal
+    return diff % 1 !== 0 ? diff.toFixed(1) : diff;
   };
 
   const renderDiff = (diff, unit = '', reverseColor = false) => {
     const val = parseFloat(diff);
     if (val === 0) return null;
-    // Default: Green for positive (gains), Red for negative (loss)
-    // If reverseColor is true: Green for negative (fat loss), Red for positive
     const isPositive = val > 0;
     let color = isPositive ? '#10B981' : '#EF4444';
     if (reverseColor) {
@@ -239,7 +213,7 @@ const ProgressScreen = ({ navigation }) => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
 
-      {/* Header */}
+      {}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Postępy</Text>
       </View>
@@ -249,7 +223,7 @@ const ProgressScreen = ({ navigation }) => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Body Weight Section */}
+        {}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>WAGA CIAŁA</Text>
@@ -315,7 +289,7 @@ const ProgressScreen = ({ navigation }) => {
           </View>
         </View>
 
-        {/* Body Measurements */}
+        {}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>POMIARY CIAŁA</Text>
@@ -366,7 +340,7 @@ const ProgressScreen = ({ navigation }) => {
           </View>
         </View>
 
-        {/* Monthly Stats */}
+        {}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>STATYSTYKI (TEN MIESIĄC)</Text>
 
@@ -415,7 +389,7 @@ const ProgressScreen = ({ navigation }) => {
           </View>
         </View>
 
-        {/* Exercise Progress */}
+        {}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>POSTĘP ĆWICZEŃ</Text>
@@ -472,7 +446,7 @@ const ProgressScreen = ({ navigation }) => {
                 ))}
               </View>
 
-              {/* View Charts Button */}
+              {}
               <TouchableOpacity
                 style={{
                   backgroundColor: '#3B82F6',
@@ -500,7 +474,7 @@ const ProgressScreen = ({ navigation }) => {
         </View>
       </ScrollView>
 
-      {/* Add Weight Modal */}
+      {}
       <Modal
         visible={showWeightModal}
         transparent
@@ -541,7 +515,7 @@ const ProgressScreen = ({ navigation }) => {
         </View>
       </Modal>
 
-      {/* Measurements Modal */}
+      {}
       <Modal
         visible={showMeasurementsModal}
         transparent
@@ -620,7 +594,7 @@ const ProgressScreen = ({ navigation }) => {
         </View>
       </Modal>
 
-      {/* Select Exercise Modal */}
+      {}
       <Modal
         visible={showExerciseModal}
         transparent
@@ -631,7 +605,7 @@ const ProgressScreen = ({ navigation }) => {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Wybierz ćwiczenie</Text>
 
-            {/* Search Bar */}
+            {}
             <View style={{ marginBottom: 12 }}>
               <TextInput
                 style={{
@@ -651,7 +625,7 @@ const ProgressScreen = ({ navigation }) => {
               />
             </View>
 
-            {/* Muscle Group Filters */}
+            {}
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -716,7 +690,7 @@ const ProgressScreen = ({ navigation }) => {
         </View>
       </Modal>
 
-      {/* Target Weight Modal */}
+      {}
       <Modal
         visible={showTargetWeightModal}
         transparent

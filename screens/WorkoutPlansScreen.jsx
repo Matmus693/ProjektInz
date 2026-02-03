@@ -23,8 +23,6 @@ const WorkoutPlansScreen = ({ navigation }) => {
   const fetchPlansAndInsights = async () => {
     try {
       setLoading(true);
-
-      // 1. Fetch Plans
       try {
         const data = await api.getWorkoutPlans();
         if (data) {
@@ -33,8 +31,6 @@ const WorkoutPlansScreen = ({ navigation }) => {
       } catch (err) {
         console.log('Error fetching plans:', err);
       }
-
-      // 2. Fetch Insights
       try {
         const insightData = await api.getInsight();
         if (insightData) {
@@ -92,7 +88,7 @@ const WorkoutPlansScreen = ({ navigation }) => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
 
-      {/* Header */}
+      {}
       <View style={styles.header}>
         <Text style={styles.title}>Plany Treningowe</Text>
         <View style={styles.headerButtons}>
@@ -116,7 +112,7 @@ const WorkoutPlansScreen = ({ navigation }) => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Insights Suggestion */}
+        {}
         {suggestion && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>SUGEROWANY TRENING (INSIGHTS)</Text>
@@ -146,7 +142,7 @@ const WorkoutPlansScreen = ({ navigation }) => {
           </View>
         )}
 
-        {/* All Plans */}
+        {}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>WSZYSTKIE PLANY</Text>
           {workoutPlans.map((plan) => (
@@ -404,11 +400,11 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
   },
   suggestionCard: {
-    backgroundColor: '#1E293B', // Dark card
+    backgroundColor: '#1E293B',
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#10B981', // Emerald green border for positive suggestion
+    borderColor: '#10B981',
     marginBottom: 10
   },
   suggestionTitle: {

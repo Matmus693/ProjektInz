@@ -17,13 +17,6 @@ const WorkoutDetailsScreen = ({ navigation, route }) => {
   const [workoutData, setWorkoutData] = useState(route?.params?.workout || null);
   const [loading, setLoading] = useState(false);
 
-  // If we navigated here with just an ID (e.g. from deep link or notification), we might need to fetch
-  // but usually we pass the full object. Let's support fetching if missing.
-  // We'll skip complex fetching logic for now unless ID is passed but object isn't.
-
-  // const totalSets = ... derived from workoutData
-  // We need to handle null workoutData safely
-
   const totalSets = workoutData?.exercises?.reduce((sum, ex) => sum + (ex.numSets || 0), 0) || 0;
   const totalVolume = workoutData.exercises?.reduce((sum, ex) => {
     const exerciseVolume = ex.sets?.reduce((vol, set) => {
@@ -89,7 +82,7 @@ const WorkoutDetailsScreen = ({ navigation, route }) => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
 
-      {/* Header */}
+      {}
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
@@ -111,7 +104,7 @@ const WorkoutDetailsScreen = ({ navigation, route }) => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Workout Info */}
+        {}
         <View style={styles.workoutInfoCard}>
           <Text style={styles.workoutName}>{workoutData.name}</Text>
           <Text style={styles.workoutDate}>{workoutData.date ? formatDate(workoutData.date) : ''}</Text>
@@ -139,7 +132,7 @@ const WorkoutDetailsScreen = ({ navigation, route }) => {
           </View>
         </View>
 
-        {/* Exercises List */}
+        {}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>ĆWICZENIA</Text>
 
@@ -176,7 +169,7 @@ const WorkoutDetailsScreen = ({ navigation, route }) => {
                 ))}
               </View>
 
-              {/* Exercise summary */}
+              {}
               <View style={styles.exerciseSummary}>
                 <Text style={styles.exerciseSummaryText}>
                   Objętość: {exercise.sets?.reduce((sum, set) =>
@@ -196,7 +189,7 @@ const WorkoutDetailsScreen = ({ navigation, route }) => {
           ))}
         </View>
 
-        {/* Action Buttons */}
+        {}
         <View style={styles.actionButtons}>
           <TouchableOpacity
             style={styles.deleteButton}

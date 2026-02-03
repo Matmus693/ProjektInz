@@ -44,8 +44,6 @@ const ExerciseProgressScreen = ({ route, navigation }) => {
             });
         }
     };
-
-    // Helper dla Tooltipa
     const TooltipComponent = () => {
         if (!selectedPoint) return null;
         return (
@@ -115,8 +113,6 @@ const ExerciseProgressScreen = ({ route, navigation }) => {
 
     const chartData = formatChartData();
     const screenWidth = Dimensions.get('window').width;
-
-    // Przygotuj pełne daty dla tooltipa (nie tylko DD/MM)
     const fullDates = progressData?.history?.slice(0, 10).reverse().map(item => item.date) || [];
 
     return (
@@ -129,9 +125,9 @@ const ExerciseProgressScreen = ({ route, navigation }) => {
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
-                {/* Karty Statystyk */}
+                {}
                 <View style={styles.statsContainer}>
-                    {/* Karta 1: Ostatni Wynik + Trend */}
+                    {}
                     <View style={styles.statCard}>
                         <Text style={styles.statValue}>{progressData.currentMax} kg</Text>
                         <Text style={styles.statLabel}>Ostatni</Text>
@@ -145,14 +141,14 @@ const ExerciseProgressScreen = ({ route, navigation }) => {
                         )}
                     </View>
 
-                    {/* Karta 2: Poprzedni Trening */}
+                    {}
                     <View style={styles.statCard}>
                         <Text style={styles.statValue}>{progressData.previousMax} kg</Text>
                         <Text style={styles.statLabel}>Poprzedni</Text>
                         <Text style={styles.statSubtext}>Max Waga</Text>
                     </View>
 
-                    {/* Karta 3: Aktualny 1RM + Trend */}
+                    {}
                     <View style={styles.statCard}>
                         <Text style={styles.statValue}>{progressData.current1RM?.toFixed(1) || 0}</Text>
                         <Text style={styles.statLabel}>1 Rep Max</Text>
@@ -167,7 +163,7 @@ const ExerciseProgressScreen = ({ route, navigation }) => {
                     </View>
                 </View>
 
-                {/* Wyświetlanie wybranego punktu (Tooltip) */}
+                {}
                 <View style={styles.tooltipSection}>
                     {selectedPoint ? (
                         <View style={styles.tooltipCard}>
@@ -180,7 +176,7 @@ const ExerciseProgressScreen = ({ route, navigation }) => {
                     )}
                 </View>
 
-                {/* Wykres Progresji Wagi */}
+                {}
                 {chartData && chartData.maxWeights.length > 0 && (
                     <View style={styles.chartSection}>
                         <Text style={styles.chartTitle}>Progres Wagi</Text>
@@ -194,15 +190,15 @@ const ExerciseProgressScreen = ({ route, navigation }) => {
                             width={screenWidth - 40}
                             height={220}
                             onDataPointClick={(data) => handleDataPointClick(data, fullDates)}
-                            withVerticalLabels={false} // Ukryj daty
-                            withHorizontalLabels={true} // Pokaż wagi
+                            withVerticalLabels={false}
+                            withHorizontalLabels={true}
                             chartConfig={{
                                 backgroundColor: '#1E293B',
                                 backgroundGradientFrom: '#1E293B',
                                 backgroundGradientTo: '#0F172A',
                                 decimalPlaces: 0,
                                 color: (opacity = 1) => `rgba(59, 130, 246, ${opacity})`,
-                                labelColor: (opacity = 1) => `rgba(148, 163, 184, ${opacity})`, // Przywróć widoczność etykiet
+                                labelColor: (opacity = 1) => `rgba(148, 163, 184, ${opacity})`,
                                 style: {
                                     borderRadius: 16
                                 },
@@ -222,7 +218,7 @@ const ExerciseProgressScreen = ({ route, navigation }) => {
                     </View>
                 )}
 
-                {/* Wykres Progresji 1RM */}
+                {}
                 {chartData && chartData.oneRepMaxes && chartData.oneRepMaxes.length > 0 && (
                     <View style={styles.chartSection}>
                         <Text style={styles.chartTitle}>Progresja 1RM</Text>
@@ -263,7 +259,7 @@ const ExerciseProgressScreen = ({ route, navigation }) => {
                     </View>
                 )}
 
-                {/* Wykres Objętości (Volume) */}
+                {}
                 {chartData && chartData.volumes.length > 0 && (
                     <View style={styles.chartSection}>
                         <Text style={styles.chartTitle}>Progresja Objętości</Text>
@@ -304,7 +300,7 @@ const ExerciseProgressScreen = ({ route, navigation }) => {
                     </View>
                 )}
 
-                {/* Lista Historii */}
+                {}
                 <View style={styles.historySection}>
                     <Text style={styles.historyTitle}>Historia Treningów</Text>
                     {progressData.history.slice(0, 10).map((item, index) => (

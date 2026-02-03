@@ -1,7 +1,6 @@
 const Exercise = require('../models/Exercise');
 const { getPolishMuscleName } = require('../utils/translations');
 
-// Mapowanie grup mięśniowych na typy treningu
 const TRAINING_TYPES = {
     FBW: ['chest', 'back', 'legs', 'shoulders', 'arms', 'core'],
     PPL_PUSH: ['chest', 'shoulders_front', 'shoulders_side', 'triceps'],
@@ -9,25 +8,18 @@ const TRAINING_TYPES = {
     PPL_LEGS: ['quads', 'hamstrings', 'glutes', 'calves']
 };
 
-// Ograniczenia bezpieczeństwa (objętość)
 const LIMITS = {
     MAX_ENGAGEMENT: 600,
     MIN_ENGAGEMENT: 50,
     REST_PERIOD_HOURS: 48
 };
 
-// Współczynniki balansu mięśni antagonistycznych
 const ANTAGONIST_RATIOS = {
     chest_to_back: { min: 0.5, max: 2.0 },
     front_delts_to_rear_delts: { min: 0.4, max: 2.5 },
     quads_to_hamstrings: { min: 0.4, max: 2.5 }
 };
 
-/**
- * Oblicz łączne zaangażowanie dla każdej części mięśnia
- * @param {Array} exercises - Lista ćwiczeń
- * @returns {Object} - Sumy zaangażowania
- */
 function calculateMuscleEngagement(exercises) {
     const engagement = {
         upperChest: 0,
@@ -62,9 +54,6 @@ function calculateMuscleEngagement(exercises) {
     return engagement;
 }
 
-/**
- * Oblicz zaangażowanie dla głównych grup mięśniowych (agregacja)
- */
 function getAggregateEngagement(engagement) {
     return {
         chest: engagement.upperChest + engagement.middleChest + engagement.lowerChest,
@@ -76,11 +65,6 @@ function getAggregateEngagement(engagement) {
     };
 }
 
-/**
- * Sprawdź czy zaangażowanie mieści się w bezpiecznych granicach
- * @param {Object} engagement - Obiekt zaangażowania
- * @returns {Object} - { valid: boolean, warnings: [] }
- */
 function validateSafetyLimits(engagement) {
     const warnings = [];
     const aggregate = getAggregateEngagement(engagement);
@@ -100,14 +84,10 @@ function validateSafetyLimits(engagement) {
     };
 }
 
-/**
- * Sprawdź balans między antagonistami
- */
 function checkAntagonistBalance(engagement) {
     const warnings = [];
     const agg = getAggregateEngagement(engagement);
 
-    // Stosunek Klatka / Plecy
     if (agg.chest > 0 && agg.back > 0) {
         const ratio = agg.chest / agg.back;
         if (ratio < ANTAGONIST_RATIOS.chest_to_back.min) {
@@ -117,7 +97,6 @@ function checkAntagonistBalance(engagement) {
         }
     }
 
-    // Przód / Tył barków
     if (engagement.frontDelts > 0 && engagement.rearDelts > 0) {
         const ratio = engagement.frontDelts / engagement.rearDelts;
         if (ratio < ANTAGONIST_RATIOS.front_delts_to_rear_delts.min) {
@@ -127,7 +106,6 @@ function checkAntagonistBalance(engagement) {
         }
     }
 
-    // Czworogłowe / Dwugłowe
     if (engagement.quads > 0 && engagement.hamstrings > 0) {
         const ratio = engagement.quads / engagement.hamstrings;
         if (ratio < ANTAGONIST_RATIOS.quads_to_hamstrings.min) {
@@ -143,19 +121,13 @@ function checkAntagonistBalance(engagement) {
     };
 }
 
-/**
- * Oceń ćwiczenie na podstawie dopasowania do celów
- * Promuje ćwiczenia wielostawowe (Compound) i wysoką efektywność
- */
 function scoreExercise(exercise, targetMuscles) {
     let score = 0;
 
-    // Bonus za wielostawy
     if (exercise.type === 'Compound') {
         score += 50;
     }
 
-    // Dodaj % zaangażowania docelowych mięśni
     targetMuscles.forEach(muscle => {
         if (exercise.muscleEngagement && exercise.muscleEngagement[muscle]) {
             score += exercise.muscleEngagement[muscle];
@@ -165,41 +137,29 @@ function scoreExercise(exercise, targetMuscles) {
     return score;
 }
 
-/**
- * Wygeneruj optymalny plan treningowy
- * @param {Array} targetMuscles - Celowane partie mięśniowe
- * @param {String} trainingType - Typ treningu (FBW, PPL...)
- * @param {Number} maxExercises - Maksymalna liczba ćwiczeń
- * @returns {Object} - Generated plan with exercises and analysis
- */
 async function generateOptimalPlan(targetMuscles, trainingType = 'CUSTOM', maxExercises = 6) {
     try {
-        // Pobierz wszystkie ćwiczenia
+        
         const allExercises = await Exercise.find({});
 
-        // Filtruj ćwiczenia, które angażują celowane mięśnie w znacznym stopniu (50%+)
         const PRIMARY_THRESHOLD = 50;
         let candidates = allExercises.filter(exercise => {
             if (!exercise.muscleEngagement) return false;
 
-            // Sprawdź czy któryś z celowanych mięśni jest mocno angażowany
             return targetMuscles.some(muscle => {
                 return (exercise.muscleEngagement[muscle] || 0) >= PRIMARY_THRESHOLD;
             });
         });
 
-        // Oceń i posortuj kandydatów
         candidates = candidates.map(ex => ({
             exercise: ex,
             score: scoreExercise(ex, targetMuscles)
         }))
             .sort((a, b) => b.score - a.score);
 
-        // Wybierz topowe ćwiczenia, dbając o różnorodność
         const selectedExercises = [];
         const usedExercises = new Set();
 
-        // Przebieg 1: Najpierw najlepsze wielostawy
         for (const { exercise } of candidates) {
             if (selectedExercises.length >= maxExercises) break;
             if (usedExercises.has(exercise.name)) continue;
@@ -210,7 +170,6 @@ async function generateOptimalPlan(targetMuscles, trainingType = 'CUSTOM', maxEx
             }
         }
 
-        // Przebieg 2: Dobierz izolacje jeśli trzeba
         for (const { exercise } of candidates) {
             if (selectedExercises.length >= maxExercises) break;
             if (usedExercises.has(exercise.name)) continue;
@@ -221,7 +180,6 @@ async function generateOptimalPlan(targetMuscles, trainingType = 'CUSTOM', maxEx
             }
         }
 
-        // Oblicz statystyki i waliduj plan
         const engagement = calculateMuscleEngagement(selectedExercises);
         const safetyCheck = validateSafetyLimits(engagement);
         const balanceCheck = checkAntagonistBalance(engagement);

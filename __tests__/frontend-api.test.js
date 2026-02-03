@@ -1,12 +1,5 @@
-/**
- * Testy Frontend API - Standalone (bez React Native)
- * Testują logikę API bez zależności od UI
- */
-
-// Mock globalny fetch
 global.fetch = jest.fn();
 
-// Mock AsyncStorage
 const AsyncStorageMock = {
     storage: {},
     async getItem(key) {
@@ -23,7 +16,6 @@ const AsyncStorageMock = {
     }
 };
 
-// Prosta implementacja ApiService do testów
 class ApiService {
     constructor() {
         this.API_URL = 'http://localhost:5000/api';

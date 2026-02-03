@@ -11,9 +11,6 @@ app.use('/api/auth', authRouter);
 
 process.env.JWT_SECRET = 'test-secret-key';
 
-/**
- * Testy integracyjne tras autoryzacji (Black-box testing)
- */
 describe('Trasy Auth - Testy Integracyjne', () => {
 
     describe('POST /api/auth/register', () => {
@@ -72,12 +69,11 @@ describe('Trasy Auth - Testy Integracyjne', () => {
 
     describe('POST /api/auth/login', () => {
         beforeEach(async () => {
-            // Utworzenie użytkownika z surowym hasłem
             const User = require('../../models/User');
             await new User({
                 username: 'loginuser',
                 email: 'login@example.com',
-                password: 'password123', // Model User automatycznie zahashuje
+                password: 'password123',
             }).save();
         });
 
@@ -148,11 +144,10 @@ describe('Trasy Auth - Testy Integracyjne', () => {
 
             expect(response.body.user.password).toBeUndefined();
 
-            // Sprawdź w bazie danych że hasło jest zahashowane
             const user = await User.findOne({ email: 'secure@example.com' });
             expect(user).toBeDefined();
             expect(user.password).not.toBe('password123');
-            expect(user.password.length).toBeGreaterThan(20); // Bcrypt hash jest długi
+            expect(user.password.length).toBeGreaterThan(20);
         });
 
         test('token JWT powinien mieć poprawną strukturę', async () => {

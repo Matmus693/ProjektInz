@@ -1,9 +1,6 @@
 const Progress = require('../../models/Progress');
 const { createTestUser } = require('../setup');
 
-/**
- * Testy jednostkowe modelu Progress (White-box testing)
- */
 describe('Model Progress - Testy Jednostkowe', () => {
 
     let testUser;
